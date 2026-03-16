@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build module
+        shell: pwsh
+        run: |
+          Install-Module -Name InvokeBuild -Force -Scope CurrentUser
+          Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
+          Invoke-Build Build
+
+      - name: Import module
+        shell: pwsh
+        run: |
+          $manifest = Get-ChildItem -Path output -Filter '*.psd1' -Recurse | Select-Object -First 1
+          Import-Module $manifest.FullName -Force
+          Get-Command -Module PoshKelvin | Format-Table -AutoSize

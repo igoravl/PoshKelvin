@@ -1,0 +1,24 @@
+# Build output (ModuleBuilder generates into this directory)
+output/
+
+# Compiled module files in root (copied by debug.ps1)
+/PoshKelvin.psm1
+/PoshKelvin.psd1
+
+# Vendored API specifications
+docs/swagger
+
+# Editor and IDE artifacts
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# PowerShell artifacts
+*.nupkg

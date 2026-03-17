@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  checks: write
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -31,6 +35,24 @@ jobs:
           Install-Module -Name InvokeBuild -Force -Scope CurrentUser
           Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
           Invoke-Build Build
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser
+          Invoke-Pester -Path tests -CI -OutputFile testResults.xml -OutputFormat JUnitXml
+
+      - name: Publish test results (Linux)
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always() && runner.os == 'Linux'
+        with:
+          files: testResults.xml
+
+      - name: Publish test results (Windows)
+        uses: EnricoMi/publish-unit-test-result-action/windows@v2
+        if: always() && runner.os == 'Windows'
+        with:
+          files: testResults.xml
 
       - name: Import module
         shell: pwsh

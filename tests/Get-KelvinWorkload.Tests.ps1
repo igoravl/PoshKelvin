@@ -69,6 +69,54 @@ Describe 'Get-KelvinWorkload' {
                 $Parameters.ContainsKey('download_status')
             }
         }
+
+        It 'Forwards -Enabled $true to the API query parameters' {
+            Get-KelvinWorkload -Enabled $true
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('enabled') -and $Parameters['enabled'] -eq $true
+            }
+        }
+
+        It 'Forwards -Enabled $false to the API query parameters' {
+            Get-KelvinWorkload -Enabled $false
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('enabled') -and $Parameters['enabled'] -eq $false
+            }
+        }
+
+        It 'Forwards -Staged $true to the API query parameters' {
+            Get-KelvinWorkload -Staged $true
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('staged') -and $Parameters['staged'] -eq $true
+            }
+        }
+
+        It 'Forwards -Staged $false to the API query parameters' {
+            Get-KelvinWorkload -Staged $false
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('staged') -and $Parameters['staged'] -eq $false
+            }
+        }
+
+        It 'Does not forward -Enabled when omitted' {
+            Get-KelvinWorkload
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                -not $Parameters.ContainsKey('enabled')
+            }
+        }
+
+        It 'Does not forward -Staged when omitted' {
+            Get-KelvinWorkload
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                -not $Parameters.ContainsKey('staged')
+            }
+        }
     }
 
     Context '-Detailed switch' {

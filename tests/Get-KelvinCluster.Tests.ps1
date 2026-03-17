@@ -65,6 +65,30 @@ Describe 'Get-KelvinCluster' {
                 $Parameters['search'] -contains 'prod'
             }
         }
+
+        It 'Forwards -Ready $true to the API query parameters' {
+            Get-KelvinCluster -Ready $true
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('ready') -and $Parameters['ready'] -eq $true
+            }
+        }
+
+        It 'Forwards -Ready $false to the API query parameters' {
+            Get-KelvinCluster -Ready $false
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('ready') -and $Parameters['ready'] -eq $false
+            }
+        }
+
+        It 'Does not forward -Ready when omitted' {
+            Get-KelvinCluster
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                -not $Parameters.ContainsKey('ready')
+            }
+        }
     }
 
     Context '-Detailed switch' {

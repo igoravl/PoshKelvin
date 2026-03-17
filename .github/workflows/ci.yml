@@ -39,8 +39,13 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser
-          Invoke-Pester -Path tests -CI -OutputFile testResults.xml -OutputFormat JUnitXml
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'tests'
+          $config.Run.Exit = $true
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputPath = 'testResults.xml'
+          $config.TestResult.OutputFormat = 'JUnitXml'
+          Invoke-Pester -Configuration $config
 
       - name: Publish test results (Linux)
         uses: EnricoMi/publish-unit-test-result-action@v2

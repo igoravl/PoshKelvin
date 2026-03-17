@@ -107,7 +107,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'https://github.com/igoravl/PoshKelvin/blob/main/CHANGELOG.md#030---2026-01-08'
+        ReleaseNotes = 'https://github.com/igoravl/PoshKelvin/blob/main/CHANGELOG.md'
 
         # Prerelease string of this module
         # Prerelease = ''

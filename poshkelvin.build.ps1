@@ -5,6 +5,17 @@
 #
 # Instead, use the build.ps1 script to run the build process.
 
+task Clean {
+    # Remove the output directory
+    if (Test-Path 'output') {
+        Remove-Item 'output' -Recurse -Force
+        Write-Host 'Output directory cleaned.'
+    }
+    else {
+        Write-Host 'Output directory does not exist.'
+    }
+}
+
 task Build {
     # Compile the module in the src folder
     Import-Module ModuleBuilder

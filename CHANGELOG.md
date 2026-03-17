@@ -5,10 +5,25 @@ All notable changes to PoshKelvin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-Historical entries below were reconstructed from published PowerShell Gallery versions
-and preserved package manifests.
-
 ## [Unreleased]
+
+- N/A
+
+## [0.3.1] - 2026-03-16
+
+### Added
+
+- Added a comprehensive Pester test suite covering all public cmdlets (`Connect-KelvinAccount`, `Export-KelvinWorkload`, `Invoke-KelvinApi`, `Remove-KelvinWorkload`, and all `Get-Kelvin*` cmdlets) and internal helpers (`_GetPaginatedData`, `_GetParams`).
+
+### Fixed
+
+- Fixed `_GetParamName` incorrectly treating parameters with no aliases as having one, causing some cmdlets to display the error message `InvalidOperation: You cannot call a method on a null-valued expression`.
+
+### Changed
+
+- Added CI workflow for building and versioning the module.
+- Added deployment workflow for handling pull-request merges and packaging.
+- Added GitVersion configuration for the versioning strategy.
 
 ## [0.3.0] - 2026-01-08
 
@@ -34,6 +49,7 @@ and preserved package manifests.
 
 ### Added
 
+- Published PoshKelvin 0.2.0 to the PowerShell Gallery.
 - `Export-KelvinWorkload` — Download a workload package.
 - `Remove-KelvinWorkload` — Undeploy one or more workloads.
 

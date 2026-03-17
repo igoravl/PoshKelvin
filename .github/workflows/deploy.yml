@@ -1,0 +1,81 @@
+name: Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    environment: PSGallery
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: '6.x'
+
+      - name: Determine version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v3
+
+      - name: Build module
+        shell: pwsh
+        run: |
+          Install-Module -Name InvokeBuild -Force -Scope CurrentUser
+          Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
+          Invoke-Build Build
+
+      - name: Extract release notes
+        shell: pwsh
+        run: |
+          $version = '${{ steps.gitversion.outputs.MajorMinorPatch }}'
+          $lines = Get-Content CHANGELOG.md
+          $inSection = $false
+          $notes = [System.Collections.Generic.List[string]]::new()
+          foreach ($line in $lines) {
+              if ($line -match "^## \[$([regex]::Escape($version))\]") {
+                  $inSection = $true
+                  continue
+              }
+              if ($inSection -and $line -match '^## \[') {
+                  break
+              }
+              if ($inSection) {
+                  $notes.Add($line)
+              }
+          }
+          ($notes -join "`n").Trim() | Out-File -FilePath release_notes.md -Encoding utf8
+
+      - name: Package module
+        shell: pwsh
+        run: |
+          $moduleDir = Get-ChildItem -Path output -Filter '*.psd1' -Recurse |
+              Select-Object -First 1 |
+              ForEach-Object { $_.DirectoryName }
+          Compress-Archive -Path "$moduleDir/*" -DestinationPath 'PoshKelvin-${{ steps.gitversion.outputs.MajorMinorPatch }}.zip'
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.gitversion.outputs.MajorMinorPatch }}" \
+            --title "v${{ steps.gitversion.outputs.MajorMinorPatch }}" \
+            --notes-file release_notes.md \
+            "PoshKelvin-${{ steps.gitversion.outputs.MajorMinorPatch }}.zip#PoshKelvin Module"
+
+      - name: Publish to PSGallery
+        shell: pwsh
+        run: |
+          $manifest = Get-ChildItem -Path output -Filter '*.psd1' -Recurse | Select-Object -First 1
+          Publish-Module -Path $manifest.DirectoryName -NuGetApiKey $env:API_KEY
+        env:
+          API_KEY: ${{ secrets.API_KEY }}

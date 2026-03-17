@@ -8,7 +8,17 @@
 task Build {
     # Compile the module in the src folder
     Import-Module ModuleBuilder
-    Build-Module -Path (Resolve-Path 'src').Path
+
+    $buildParams = @{
+        Path = (Resolve-Path 'src').Path
+    }
+
+    if ($env:GitVersion_MajorMinorPatch) {
+        $buildParams['Version'] = $env:GitVersion_MajorMinorPatch
+        Write-Host "Building version $($env:GitVersion_SemVer) (ModuleVersion: $($env:GitVersion_MajorMinorPatch))"
+    }
+
+    Build-Module @buildParams
 }
 
 task Test Build, {

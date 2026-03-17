@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- N/A
+## [0.4.1] - 2026-03-17
+
+### Fixed
+
+- Fixed boolean filter parameters (`$Running`, `$Ready`, `$Enabled`, `$Staged`) incorrectly rejecting `$false` as a valid value by changing their type from `[bool]` to `[Nullable[bool]]`.
+- Refactored `_GetParams` helper to simplify parameter extraction, removing the need for per-cmdlet workarounds.
+
+### Changed
+
+- Reorganized `src/public/` into tag-based subfolders (`AppManager`, `Asset`, `Bridge`, and so on) to improve source-code navigation. No functional changes.
 
 ## [0.4.0] - 2026-03-17
 

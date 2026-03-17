@@ -38,6 +38,18 @@ Invoke-Build Test
 - Use `camelCase` or `snake_case` only for API field aliases.
 - Prefer `[CmdletBinding()]` and `[OutputType()]` on every public function.
 - Use `$PSCmdlet.ShouldProcess` for destructive operations.
+- Use only **approved PowerShell verbs** (`Get-Verb`) in cmdlet names.
+  Run `Get-Verb` to see the full list. Common mappings for this module:
+  | API action | PS verb | Example |
+  |---|---|---|
+  | create/deploy | `New` | `New-KelvinWorkload` |
+  | list/get | `Get` | `Get-KelvinWorkload` |
+  | update | `Set` | `Set-KelvinWorkloadConfiguration` |
+  | delete/undeploy | `Remove` | `Remove-KelvinWorkload` |
+  | start | `Start` | `Start-KelvinWorkload` |
+  | stop | `Stop` | `Stop-KelvinWorkload` |
+  | download/export | `Export` | `Export-KelvinWorkload` |
+  | apply/finalize | `Install` | `Install-KelvinWorkload` |
 
 ### Comment-based help
 

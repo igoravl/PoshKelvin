@@ -60,7 +60,7 @@ task Build GenerateVersion, {
     $moduleVersion = $env:GitVersion_MajorMinorPatch
     if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
         Write-Warning 'GitVersion_MajorMinorPatch is not set or empty. Falling back to ModuleVersion from the module manifest.'
-        $manifest = Get-ChildItem -Path 'src' -Filter '*.psd1' | Select-Object -First 1
+        $manifest = Get-ChildItem -Path 'src' -Filter 'PoshKelvin.psd1' | Select-Object -First 1
         if (-not $manifest) {
             throw "GitVersion_MajorMinorPatch is not set and no module manifest was found under 'src' to determine a version."
         }

@@ -32,7 +32,7 @@ Function Get-KelvinBridge {
 
         # Filter bridges by running state.
         [Parameter(ParameterSetName = 'Query')]
-        [bool] $Running,
+        [Nullable[bool]] $Running,
 
         # Return detailed information for each bridge.
         [Parameter()]

@@ -32,7 +32,7 @@ Function Get-KelvinCluster {
 
         # Filter clusters by readiness state.
         [Parameter(ParameterSetName = 'Query')]
-        [bool] $Ready,
+        [Nullable[bool]] $Ready,
 
         # Filter clusters by type.
         [Parameter(ParameterSetName = 'Query')]

@@ -6,19 +6,8 @@
     It returns a new hashtable containing only the parameters that are present in the mapping.
     This way, parameters not supplied by the user are not passed to the API call.
 #>
-Function _GetParams ($BP, $Map) {
+Function _GetParams {
 
-    if ($Map) {
-        $result = @{}
-        foreach ($key in $Map.Keys) {
-            $val = $Map[$key]
-            if ($null -ne $val) {
-                $result[$key] = $val
-            }
-        }
-        return $result
-    }
-    
     $caller = (Get-PSCallStack)[1]
     $invocationInfo = $caller.InvocationInfo
     $callerCommand = $invocationInfo.MyCommand

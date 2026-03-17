@@ -67,7 +67,7 @@ Function Get-KelvinWorkload {
 
         # Filter workloads by enabled status
         [Parameter(ParameterSetName = 'Query')]
-        [bool] $Enabled,
+        [Nullable[bool]] $Enabled,
 
         # Filter workloads by associated asset name
         [Parameter(ParameterSetName = 'Query')]
@@ -77,7 +77,7 @@ Function Get-KelvinWorkload {
 
         # Filter workloads by staged status
         [Parameter(ParameterSetName = 'Query')]
-        [bool] $Staged,
+        [Nullable[bool]] $Staged,
 
         # Filter workloads by download status: pending, scheduled, processing, ready, or failed
         [Parameter(ParameterSetName = 'Query')]
@@ -91,17 +91,7 @@ Function Get-KelvinWorkload {
     )
 
     Process {
-        $params = _GetParams $PSBoundParameters @{
-            search          = $Search
-            app_name        = $AppName
-            app_version     = $AppVersion
-            cluster_name    = $ClusterName
-            node_name       = $NodeName
-            enabled         = $Enabled
-            asset_name      = $AssetName
-            staged          = $Staged
-            download_status = $DownloadStatus
-        }
+        $params = _GetParams
 
         # Call the Kelvin API to list workloads
         Invoke-KelvinApi 'workloads/list' -Method Get -TypeName 'Kelvin.Workload' -Parameters $params `

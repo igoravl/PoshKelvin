@@ -70,7 +70,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v${{ steps.gitversion.outputs.MajorMinorPatch }}" \
-            --title "v${{ steps.gitversion.outputs.MajorMinorPatch }}" \
+            --title "Version ${{ steps.gitversion.outputs.MajorMinorPatch }}" \
             --notes-file release_notes.md \
             "PoshKelvin-${{ steps.gitversion.outputs.MajorMinorPatch }}.zip#PoshKelvin Module"
 

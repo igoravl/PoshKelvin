@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - N/A
 
+## [0.3.2] - 2026-03-17
+
+### Fixed
+
+- Fixed `ReleaseNotes` in the compiled module manifest now being set automatically at build time to a deep link pointing to the current version's section in `CHANGELOG.md`, instead of remaining as a stale static URL from a previous release.
+- Fixed `Publish` task selecting an arbitrary manifest from the output directory; it now correctly selects the most recently written one.
+
 ## [0.3.1] - 2026-03-16
 
 ### Added

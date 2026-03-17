@@ -27,12 +27,13 @@ jobs:
         id: gitversion
         uses: gittools/actions/gitversion/execute@v3
 
-      - name: Build module
+      - name: Build, test and package module
         shell: pwsh
         run: |
-          Install-Module -Name InvokeBuild -Force -Scope CurrentUser
+          Install-Module -Name InvokeBuild   -Force -Scope CurrentUser
           Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
-          Invoke-Build Build
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser -SkipPublisherCheck
+          ./build.ps1 -Task Package
 
       - name: Extract release notes
         shell: pwsh

@@ -92,7 +92,15 @@ function New-KelvinWorkload {
             $b
         }
 
-        $target = if ($requestBody.ContainsKey('name')) { $requestBody['name'] } else { $requestBody['app_name'] }
+        $target = if ($requestBody.ContainsKey('name') -and $requestBody['name']) {
+            $requestBody['name']
+        }
+        elseif ($requestBody.ContainsKey('app_name') -and $requestBody['app_name']) {
+            $requestBody['app_name']
+        }
+        else {
+            '<unspecified workload>'
+        }
         if (-not $PSCmdlet.ShouldProcess($target, 'Create workload')) {
             return
         }

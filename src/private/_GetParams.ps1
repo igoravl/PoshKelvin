@@ -48,12 +48,8 @@ Function _GetParamName ($parm) {
 
     $paramName = $parm.Name.ToLower()
 
-    if ($null -ne $parm.Aliases) {
+    if ($parm.Aliases.Count -gt 0) {
         $paramName = $parm.Aliases[0].ToLower()
-    }
-
-    if ($null -ne $parm.Alias) {
-        $paramName = $parm.Alias[0].ToLower()
     }
 
     return $paramName

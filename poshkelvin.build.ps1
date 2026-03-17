@@ -17,16 +17,24 @@ task Clean {
 }
 
 task GenerateVersion {
-    # Ensure the .NET global tools directory is in PATH for this session
-    $dotnetToolsPath = Join-Path ([System.Environment]::GetFolderPath('UserProfile')) '.dotnet' 'tools'
+    # Ensure the dotnet CLI is available before proceeding
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+        throw "The .NET SDK (dotnet CLI) is required to run GitVersion. Please install .NET and ensure 'dotnet' is available on PATH."
+    }
+
+    # Ensure a workspace-local .NET tools directory is in PATH for this session
+    $dotnetToolsPath = Join-Path $PSScriptRoot '.dotnet-tools'
+    if (-not (Test-Path $dotnetToolsPath)) {
+        New-Item -ItemType Directory -Path $dotnetToolsPath | Out-Null
+    }
     if ($env:PATH -notlike "*$dotnetToolsPath*") {
         $env:PATH = "$dotnetToolsPath$([System.IO.Path]::PathSeparator)$env:PATH"
     }
 
-    # Install GitVersion.Tool if not available
+    # Install GitVersion.Tool locally if not available
     if (-not (Get-Command dotnet-gitversion -ErrorAction SilentlyContinue)) {
-        Write-Host 'GitVersion not found. Installing via dotnet tool...'
-        dotnet tool install --global GitVersion.Tool
+        Write-Host 'GitVersion not found. Installing locally via dotnet tool...'
+        dotnet tool install GitVersion.Tool --tool-path $dotnetToolsPath
     }
 
     Write-Host 'Running GitVersion...'
@@ -47,16 +55,29 @@ task Build GenerateVersion, {
     # Compile the module in the src folder
     Import-Module ModuleBuilder
 
-    $buildParams = @{
-        Path       = (Resolve-Path 'src').Path
-        Version    = $env:GitVersion_MajorMinorPatch
+    # Determine the module version to build:
+    # Prefer GitVersion_MajorMinorPatch, fall back to the manifest's ModuleVersion if necessary.
+    $moduleVersion = $env:GitVersion_MajorMinorPatch
+    if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+        Write-Warning 'GitVersion_MajorMinorPatch is not set or empty. Falling back to ModuleVersion from the module manifest.'
+        $manifest = Get-ChildItem -Path 'src' -Filter '*.psd1' | Select-Object -First 1
+        if (-not $manifest) {
+            throw "GitVersion_MajorMinorPatch is not set and no module manifest was found under 'src' to determine a version."
+        }
+        $manifestInfo = Test-ModuleManifest -Path $manifest.FullName
+        $moduleVersion = $manifestInfo.Version.ToString()
     }
 
-    Write-Host "Building version $($env:GitVersion_SemVer) (ModuleVersion: $($env:GitVersion_MajorMinorPatch))"
+    $buildParams = @{
+        Path    = (Resolve-Path 'src').Path
+        Version = $moduleVersion
+    }
+
+    Write-Host "Building version $($env:GitVersion_SemVer) (ModuleVersion: $moduleVersion)"
     Build-Module @buildParams
 
     # Update ReleaseNotes in the compiled manifest to point to the current version
-    $version = $env:GitVersion_MajorMinorPatch
+    $version = $moduleVersion
     $heading = Get-Content 'CHANGELOG.md' |
         Where-Object { $_ -match "^## \[$([regex]::Escape($version))\]" } |
         Select-Object -First 1
@@ -104,6 +125,9 @@ task Verify Test, {
 task Package Verify, {
     # Fail fast when the changelog has no entry for the version being packaged
     $version = $env:GitVersion_MajorMinorPatch
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        throw "GitVersion_MajorMinorPatch environment variable is not set or is empty. Run the GenerateVersion task before Package or ensure versioning is configured."
+    }
     $heading = Get-Content 'CHANGELOG.md' |
         Where-Object { $_ -match "^## \[$([regex]::Escape($version))\]" } |
         Select-Object -First 1

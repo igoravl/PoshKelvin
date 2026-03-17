@@ -23,5 +23,8 @@ Thumbs.db
 # PowerShell artifacts
 *.nupkg
 
+# Local .NET tools (installed by build)
+.dotnet-tools/
+
 # Test results
 testResults.xml

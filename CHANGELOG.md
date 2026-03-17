@@ -14,16 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Added a comprehensive Pester test suite covering all public cmdlets (`Connect-KelvinAccount`, `Export-KelvinWorkload`, `Invoke-KelvinApi`, `Remove-KelvinWorkload`, and all `Get-Kelvin*` cmdlets) and internal helpers (`_GetPaginatedData`, `_GetParams`).
+- Added CI workflow for building and versioning the module.
+- Added deployment workflow for handling pull-request merges and packaging.
+- Added GitVersion configuration for the versioning strategy.
 
 ### Fixed
 
 - Fixed `_GetParamName` incorrectly treating parameters with no aliases as having one, causing some cmdlets to display the error message `InvalidOperation: You cannot call a method on a null-valued expression`.
-
-### Changed
-
-- Added CI workflow for building and versioning the module.
-- Added deployment workflow for handling pull-request merges and packaging.
-- Added GitVersion configuration for the versioning strategy.
 
 ## [0.3.0] - 2026-01-08
 

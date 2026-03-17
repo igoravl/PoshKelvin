@@ -22,3 +22,6 @@ Thumbs.db
 
 # PowerShell artifacts
 *.nupkg
+
+# Test results
+testResults.xml

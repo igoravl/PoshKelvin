@@ -40,16 +40,19 @@ task Build {
         Select-Object -First 1
     $releaseNotes = if ($heading) {
         # GitHub anchor slugification: strip '## ', lowercase, keep only [a-z0-9 -], spaces -> hyphens
-        $slug = ($heading -replace '^## ', '').ToLower() -replace '[^\w\s-]', '' -replace '\s+', '-'
+        $slug = ($heading -replace '^## ', '').ToLower() -replace '[^a-z0-9\s-]', '' -replace '\s+', '-'
         "https://github.com/igoravl/PoshKelvin/blob/main/CHANGELOG.md#$slug"
     } else {
         "https://github.com/igoravl/PoshKelvin/blob/main/CHANGELOG.md"
     }
 
-    $compiledManifest = Get-ChildItem -Path 'output' -Filter '*.psd1' -Recurse | Select-Object -First 1
+    $compiledManifest = Get-ChildItem -Path 'output' -Filter '*.psd1' -Recurse | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1
     if ($compiledManifest) {
         Update-ModuleManifest -Path $compiledManifest.FullName -ReleaseNotes $releaseNotes
         Write-Host "ReleaseNotes set to: $releaseNotes"
+    }
+    else {
+        throw "No compiled module manifest found in output directory. Cannot set ReleaseNotes."
     }
 }
 
@@ -72,7 +75,7 @@ task Package Test, {
 
 task Publish Package, {
     # Publish the module to a NuGet feed
-    $modulePath = Get-ChildItem -Path 'output' -Filter '*.psd1' -Recurse | Select-Object -First 1
+    $modulePath = Get-ChildItem -Path 'output' -Filter '*.psd1' -Recurse | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1
 
     if ($null -eq $modulePath) {
         throw "No module manifest found in output directory."

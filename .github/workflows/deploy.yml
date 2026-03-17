@@ -19,27 +19,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v3
-        with:
-          versionSpec: '6.x'
-
-      - name: Determine version
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v3
-
       - name: Build, test and package module
+        id: build
         shell: pwsh
         run: |
           Install-Module -Name InvokeBuild   -Force -Scope CurrentUser
           Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
           Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser -SkipPublisherCheck
           ./build.ps1 -Task Package
+          "version=$env:GitVersion_MajorMinorPatch" | Add-Content -Path $env:GITHUB_OUTPUT
 
       - name: Extract release notes
         shell: pwsh
         run: |
-          $version = '${{ steps.gitversion.outputs.MajorMinorPatch }}'
+          $version = '${{ steps.build.outputs.version }}'
           $lines = Get-Content CHANGELOG.md
           $inSection = $false
           $notes = [System.Collections.Generic.List[string]]::new()
@@ -63,16 +56,16 @@ jobs:
           $moduleDir = Get-ChildItem -Path output -Filter '*.psd1' -Recurse |
               Select-Object -First 1 |
               ForEach-Object { $_.DirectoryName }
-          Compress-Archive -Path "$moduleDir/*" -DestinationPath 'PoshKelvin-${{ steps.gitversion.outputs.MajorMinorPatch }}.zip'
+          Compress-Archive -Path "$moduleDir/*" -DestinationPath 'PoshKelvin-${{ steps.build.outputs.version }}.zip'
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ steps.gitversion.outputs.MajorMinorPatch }}" \
-            --title "Version ${{ steps.gitversion.outputs.MajorMinorPatch }}" \
+          gh release create "v${{ steps.build.outputs.version }}" \
+            --title "Version ${{ steps.build.outputs.version }}" \
             --notes-file release_notes.md \
-            "PoshKelvin-${{ steps.gitversion.outputs.MajorMinorPatch }}.zip#PoshKelvin Module"
+            "PoshKelvin-${{ steps.build.outputs.version }}.zip#PoshKelvin Module"
 
       - name: Publish to PSGallery
         shell: pwsh

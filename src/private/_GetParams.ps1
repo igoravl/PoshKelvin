@@ -1,24 +1,16 @@
 ﻿<#
 .SYNOPSIS
-    This function is used to extract parameters from a hashtable based on a mapping.
+    Derives query parameters for an API call from the caller's bound parameters.
 .DESCRIPTION
-    The function takes a hashtable of bound parameters and a mapping hashtable.
-    It returns a new hashtable containing only the parameters that are present in the mapping.
-    This way, parameters not supplied by the user are not passed to the API call.
+    This function inspects the calling command via the PowerShell call stack and uses
+    its InvocationInfo.BoundParameters and parameter metadata to construct a hashtable
+    of query parameters. It selects only parameters that belong to the 'Query' parameter
+    set and that were explicitly bound by the caller, then maps each to its query name
+    (preferring the first alias when available). Parameters that were not supplied or
+    have a value of $null are omitted so they are not sent to the API.
 #>
-Function _GetParams ($BP, $Map) {
+Function _GetParams {
 
-    if ($Map) {
-        $result = @{}
-        foreach ($key in $Map.Keys) {
-            $val = $Map[$key]
-            if ($null -ne $val) {
-                $result[$key] = $val
-            }
-        }
-        return $result
-    }
-    
     $caller = (Get-PSCallStack)[1]
     $invocationInfo = $caller.InvocationInfo
     $callerCommand = $invocationInfo.MyCommand

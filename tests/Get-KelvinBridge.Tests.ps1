@@ -51,6 +51,30 @@ Describe 'Get-KelvinBridge' {
                 $Parameters['search'] -contains 'prod'
             }
         }
+
+        It 'Forwards -Running $true to the API query parameters' {
+            Get-KelvinBridge -Running $true
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('running') -and $Parameters['running'] -eq $true
+            }
+        }
+
+        It 'Forwards -Running $false to the API query parameters' {
+            Get-KelvinBridge -Running $false
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                $Parameters.ContainsKey('running') -and $Parameters['running'] -eq $false
+            }
+        }
+
+        It 'Does not forward -Running when omitted' {
+            Get-KelvinBridge
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -ParameterFilter {
+                -not $Parameters.ContainsKey('running')
+            }
+        }
     }
 
     Context '-Detailed switch' {

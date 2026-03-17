@@ -21,31 +21,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v3
-        with:
-          versionSpec: '6.x'
-
-      - name: Determine version
-        uses: gittools/actions/gitversion/execute@v3
-
-      - name: Build module
+      - name: Install prerequisites
         shell: pwsh
         run: |
-          Install-Module -Name InvokeBuild -Force -Scope CurrentUser
+          Install-Module -Name InvokeBuild   -Force -Scope CurrentUser
           Install-Module -Name ModuleBuilder -Force -Scope CurrentUser
-          Invoke-Build Build
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser
 
-      - name: Run tests
+      - name: Build, test and verify
         shell: pwsh
-        run: |
-          $config = New-PesterConfiguration
-          $config.Run.Path = 'tests'
-          $config.Run.Exit = $true
-          $config.TestResult.Enabled = $true
-          $config.TestResult.OutputPath = 'testResults.xml'
-          $config.TestResult.OutputFormat = 'JUnitXml'
-          Invoke-Pester -Configuration $config
+        run: ./build.ps1 -Task Package
 
       - name: Publish test results (Linux)
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -58,10 +43,3 @@ jobs:
         if: always() && runner.os == 'Windows'
         with:
           files: testResults.xml
-
-      - name: Import module
-        shell: pwsh
-        run: |
-          $manifest = Get-ChildItem -Path output -Filter '*.psd1' -Recurse | Select-Object -First 1
-          Import-Module $manifest.FullName -Force
-          Get-Command -Module PoshKelvin | Format-Table -AutoSize

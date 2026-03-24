@@ -39,12 +39,19 @@ function Set-KelvinSecret {
         [switch] $Force
     )
 
-    process {
-        if (-not ($Force.IsPresent -or $PSCmdlet.ShouldProcess($Name, 'Replace secret (delete + create)'))) {
-            return
+    begin {
+        $previousConfirmPreference = $ConfirmPreference
+        if ($Force.IsPresent) {
+            $ConfirmPreference = 'None'
         }
+    }
 
+    process {
         try {
+            if (-not $PSCmdlet.ShouldProcess($Name, 'Replace secret (delete + create)')) {
+                return
+            }
+
             Invoke-KelvinApi "secrets/$Name/delete" -Method Post | Out-Null
         }
         catch {
@@ -63,5 +70,9 @@ function Set-KelvinSecret {
         catch {
             Write-Error "Failed to create secret '$Name' after deletion: $_"
         }
+    }
+
+    end {
+        $ConfirmPreference = $previousConfirmPreference
     }
 }

@@ -36,18 +36,29 @@ function Remove-KelvinSecret {
         [switch] $Force
     )
 
+    begin {
+        $previousConfirmPreference = $ConfirmPreference
+        if ($Force.IsPresent) {
+            $ConfirmPreference = 'None'
+        }
+    }
+
     process {
         foreach ($s in $Name) {
-            if (-not ($Force.IsPresent -or $PSCmdlet.ShouldProcess($s, 'Delete secret'))) {
-                continue
-            }
-
             try {
+                if (-not $PSCmdlet.ShouldProcess($s, 'Delete secret')) {
+                    continue
+                }
+
                 Invoke-KelvinApi "secrets/$s/delete" -Method Post | Out-Null
             }
             catch {
                 Write-Error "Failed to delete secret '$s': $_"
             }
         }
+    }
+
+    end {
+        $ConfirmPreference = $previousConfirmPreference
     }
 }

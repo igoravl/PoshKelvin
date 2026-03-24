@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-24
+
+### Added
+
+- `New-KelvinSecret` — Create a new secret.
+- `Set-KelvinSecret` — Replace the value of an existing secret (delete + create).
+- `Remove-KelvinSecret` — Permanently delete one or more secrets.
+
 ## [0.4.1] - 2026-03-17
 
 ### Fixed

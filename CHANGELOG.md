@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Automatic access token renewal. Tokens are refreshed using the refresh token when they are about to expire, falling back to re-authentication with the cached credentials when the refresh token is no longer valid.
 - `-RefreshWindow` parameter on `Connect-KelvinAccount` to control how many seconds before expiration a token is renewed (default: 300).
+- `Disconnect-KelvinAccount` — Clear the current session, discarding the cached credentials and tokens.
 
 ### Changed
 

@@ -68,7 +68,8 @@ function Connect-KelvinAccount {
     # Otherwise, use KELVIN_USERNAME and KELVIN_PASSWORD environment variables.
     if ($Credentials) {
         $Username = $Credentials.UserName
-        $Password = $Credentials.Password
+        # Copy so the session owns its SecureString and can dispose it without affecting the caller
+        $Password = $Credentials.Password.Copy()
     }
     elseif ($env:KELVIN_USERNAME -and $env:KELVIN_PASSWORD) {
         $Username = $env:KELVIN_USERNAME

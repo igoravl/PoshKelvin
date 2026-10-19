@@ -41,6 +41,12 @@ Install-Module PoshKelvin -Scope CurrentUser
    Get-Command -Module PoshKelvin
    ```
 
+1. When you are done, clear the cached session and credentials:
+
+   ```powershell
+   Disconnect-KelvinAccount
+   ```
+
 ## Invoke-KelvinApi
 
 For operations not yet wrapped by cmdlets, use `Invoke-KelvinApi` to call the

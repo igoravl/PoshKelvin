@@ -14,8 +14,8 @@ function _GetToken {
     $threshold = $now.AddSeconds($session.RefreshWindow)
 
     Write-Verbose ("Access token expires in {0}s; refresh token expires in {1}s; refresh window is {2}s" -f `
-            [int]($session.AccessTokenExpiresAt - $now).TotalSeconds,
-            [int]($session.RefreshTokenExpiresAt - $now).TotalSeconds,
+            [long]($session.AccessTokenExpiresAt - $now).TotalSeconds,
+            [long]($session.RefreshTokenExpiresAt - $now).TotalSeconds,
             $session.RefreshWindow)
 
     if ($session.AccessTokenExpiresAt -gt $threshold) {

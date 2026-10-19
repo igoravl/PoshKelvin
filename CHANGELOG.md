@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `Update-KelvinToken` for immediate, on-demand token refresh, with `-Force` for re-authentication, verbose diagnostics, and a status object containing UTC expiration dates. Normal API calls still renew tokens automatically.
 - Automatic access token renewal. Tokens are refreshed using the refresh token when they are about to expire, falling back to re-authentication with the cached credentials when the refresh token is no longer valid.
 - `-RefreshWindow` parameter on `Connect-KelvinAccount` to control how many seconds before expiration a token is renewed (default: 300).
 - `Disconnect-KelvinAccount` — End the server-side session (revoking the refresh token) and clear the local session, discarding the cached credentials and tokens.

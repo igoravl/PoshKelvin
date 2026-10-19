@@ -41,14 +41,29 @@ function _RequestToken {
         throw 'Authentication failed. No token received.'
     }
 
-    if (-not $response.refresh_token) {
-        Write-Verbose 'Token response did not contain a refresh token. Re-authentication will be required when the access token expires.'
-    }
-
     $Session.AccessToken = $response.access_token
     $Session.AccessTokenExpiresAt = $requestedAt.AddSeconds([int] $response.expires_in)
-    $Session.RefreshToken = $response.refresh_token
-    $Session.RefreshTokenExpiresAt = $requestedAt.AddSeconds([int] $response.refresh_expires_in)
+
+    if ($response.refresh_token) {
+        $Session.RefreshToken = $response.refresh_token
+
+        # Keycloak reports refresh_expires_in = 0 for refresh tokens without an expiration (e.g. offline tokens)
+        $Session.RefreshTokenExpiresAt = if ([int] $response.refresh_expires_in -gt 0) {
+            $requestedAt.AddSeconds([int] $response.refresh_expires_in)
+        }
+        else {
+            Write-Verbose 'Refresh token has no expiration.'
+            [DateTime]::SpecifyKind([DateTime]::MaxValue, [DateTimeKind]::Utc)
+        }
+    }
+    elseif ($UseRefreshToken) {
+        Write-Verbose 'Token response did not contain a new refresh token. Keeping the current refresh token.'
+    }
+    else {
+        Write-Verbose 'Token response did not contain a refresh token. Re-authentication will be required when the access token expires.'
+        $Session.RefreshToken = $null
+        $Session.RefreshTokenExpiresAt = [DateTime]::MinValue
+    }
 
     Write-Verbose ("Token received. Access token expires in {0}s (at {1:o}); refresh token expires in {2}s (at {3:o})" -f `
             $response.expires_in, $Session.AccessTokenExpiresAt, $response.refresh_expires_in, $Session.RefreshTokenExpiresAt)

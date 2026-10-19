@@ -47,6 +47,27 @@ Install-Module PoshKelvin -Scope CurrentUser
    Disconnect-KelvinAccount
    ```
 
+## Token renewal
+
+API commands automatically renew tokens when needed after `Connect-KelvinAccount`;
+manual renewal is not required. To test renewal or renew tokens early:
+
+```powershell
+Update-KelvinToken -Verbose
+```
+
+To re-authenticate with the cached credentials and request both tokens:
+
+```powershell
+Update-KelvinToken -Force -Verbose
+```
+
+Both commands return `Status` (`Refreshed` or `Reauthenticated`),
+`AccessTokenExpiresAt` and `RefreshTokenExpiresAt` (UTC), without exposing tokens
+or credentials. Failed operations raise an error and return no status object.
+Normal refresh does not fall back to re-authentication; use `-Force` if the
+refresh token is unavailable or rejected.
+
 ## Invoke-KelvinApi
 
 For operations not yet wrapped by cmdlets, use `Invoke-KelvinApi` to call the

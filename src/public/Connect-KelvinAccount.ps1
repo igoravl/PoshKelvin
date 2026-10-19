@@ -9,6 +9,10 @@
     password is kept as a SecureString, and the access token is refreshed
     automatically when it is about to expire.
 
+    It is not necessary to call Update-KelvinToken during normal use: API commands
+    handle token renewal automatically. Use Update-KelvinToken only to test renewal
+    or renew tokens earlier than the configured refresh window.
+
 .EXAMPLE
     PS> $cred = Get-Credential
     PS> Connect-KelvinAccount -Url https://my-instance.kelvin.ai/ -Credentials $cred

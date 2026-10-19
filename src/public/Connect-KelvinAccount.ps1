@@ -67,11 +67,13 @@ function Connect-KelvinAccount {
     # Extract username and password from the PSCredential object, if present.
     # Otherwise, use KELVIN_USERNAME and KELVIN_PASSWORD environment variables.
     if ($Credentials) {
+        Write-Verbose 'Using credentials from the -Credentials parameter.'
         $Username = $Credentials.UserName
         # Copy so the session owns its SecureString and can dispose it without affecting the caller
         $Password = $Credentials.Password.Copy()
     }
     elseif ($env:KELVIN_USERNAME -and $env:KELVIN_PASSWORD) {
+        Write-Verbose 'Using credentials from the KELVIN_USERNAME and KELVIN_PASSWORD environment variables.'
         $Username = $env:KELVIN_USERNAME
         $Password = ConvertTo-SecureString $env:KELVIN_PASSWORD -AsPlainText -Force
     }
@@ -94,7 +96,11 @@ function Connect-KelvinAccount {
         RefreshWindow         = $RefreshWindow
     }
 
-    Write-Verbose "Authenticating against Kelvin service at $($session.TokenUrl)"
+    if ($script:KelvinSession) {
+        Write-Verbose "An existing session for '$($script:KelvinSession.Username)' at $($script:KelvinSession.Url) will be replaced on successful authentication."
+    }
+
+    Write-Verbose "Authenticating as '$Username' against Kelvin service at $($session.TokenUrl) (refresh window: ${RefreshWindow}s)"
 
     try {
         _RequestToken -Session $session
@@ -107,4 +113,5 @@ function Connect-KelvinAccount {
     Write-Verbose "Successfully authenticated against Kelvin service."
 
     $script:KelvinSession = $session
+    Write-Verbose "Session stored. API base URL: $($session.Url)"
 }

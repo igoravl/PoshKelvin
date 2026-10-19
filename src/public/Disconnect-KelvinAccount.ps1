@@ -27,7 +27,10 @@ function Disconnect-KelvinAccount {
         return
     }
 
+    Write-Verbose "Disconnecting '$($session.Username)' from Kelvin service at $($session.Url)"
+
     if ($session.Password -is [securestring]) {
+        Write-Verbose 'Disposing the cached password.'
         $session.Password.Dispose()
     }
 

@@ -30,46 +30,46 @@
             $response = Invoke-RestMethod -Uri $currentUri -Method $Method -Body $Body `
                 -ContentType $ContentType -Headers $Headers -ErrorAction Stop
 
-            if ($response.PSObject.Properties.Name -contains 'pagination') {
-                Write-Verbose "Pagination detected. Processing page $pageCount"
-                Write-Verbose $response.pagination | ConvertTo-Json -Compress
+            if ($response.PSObject.Properties.Name -notcontains 'pagination') {
+                Write-Output $response
+                $currentUri = $null
+                continue
+            }
 
-                try {
-                    $response.data | ForEach-Object {
-                        $item = $_
-                        if ($TypeName) {
-                            $_.PSObject.TypeNames.Insert(0, $TypeName)
-                        }
-                        Write-Output $item
+            Write-Verbose "Pagination detected. Processing page $pageCount"
+            Write-Verbose $response.pagination | ConvertTo-Json -Compress
+
+            try {
+                $response.data | ForEach-Object {
+                    $item = $_
+                    if ($TypeName) {
+                        $_.PSObject.TypeNames.Insert(0, $TypeName)
                     }
+                    Write-Output $item
+                }
+            }
+            catch {
+                Write-Error "Failed to process page $pageCount data: $($_.Exception.Message)"
+                return
+            }
+            
+            if ($response.pagination.next_page) {
+                try {
+                    Add-Type -AssemblyName System.Web
+                    $builder = [UriBuilder]$Uri
+                    $query = [System.Web.HttpUtility]::ParseQueryString($builder.Query)
+                    $query['next'] = $response.pagination.next_page
+                    $query['previous'] = $response.pagination.previous_page
+                    $builder.Query = $query.ToString()
+                    $currentUri = $builder.Uri
+                    $pageCount++
                 }
                 catch {
-                    Write-Error "Failed to process page $pageCount data: $($_.Exception.Message)"
+                    Write-Error "Failed to build pagination URL: $($_.Exception.Message)"
                     return
-                }
-                
-                if ($response.pagination.next_page) {
-                    try {
-                        Add-Type -AssemblyName System.Web
-                        $builder = [UriBuilder]$Uri
-                        $query = [System.Web.HttpUtility]::ParseQueryString($builder.Query)
-                        $query['next'] = $response.pagination.next_page
-                        $query['previous'] = $response.pagination.previous_page
-                        $builder.Query = $query.ToString()
-                        $currentUri = $builder.Uri
-                        $pageCount++
-                    }
-                    catch {
-                        Write-Error "Failed to build pagination URL: $($_.Exception.Message)"
-                        return
-                    }
-                }
-                else {
-                    $currentUri = $null
                 }
             }
             else {
-                Write-Output $response
                 $currentUri = $null
             }
         }

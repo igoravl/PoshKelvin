@@ -12,8 +12,7 @@ Describe 'Invoke-KelvinApi' {
         BeforeAll {
             # Clear any existing connection
             & (Get-Module PoshKelvin) {
-                $script:KelvinURL   = $null
-                $script:KelvinToken = $null
+                $script:KelvinSession = $null
             }
         }
 

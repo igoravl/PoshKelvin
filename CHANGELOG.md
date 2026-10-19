@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Automatic access token renewal. Tokens are refreshed using the refresh token when they are about to expire, falling back to re-authentication with the cached credentials when the refresh token is no longer valid.
+- `-RefreshWindow` parameter on `Connect-KelvinAccount` to control how many seconds before expiration a token is renewed (default: 300).
+
+### Changed
+
+- Connection state is now kept in a single module-scoped session object. The password is stored as a `SecureString` and is only converted to plain text when building an authentication request.
+- Simplified the handling of non-paginated responses in `_GetPaginatedData`. No functional changes.
+
+### Fixed
+
+- `Connect-KelvinAccount` no longer writes the raw token response to the verbose stream.
+- `Connect-KelvinAccount` now resolves the authentication endpoint correctly when the URL already includes an API version (for example, `https://host/api/v4`).
+
 ## [0.4.1] - 2026-03-17
 
 ### Fixed

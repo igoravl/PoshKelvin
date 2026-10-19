@@ -60,11 +60,9 @@ function Invoke-KelvinApi {
         [switch]$AsStream
     )
 
-    if (-not $script:KelvinURL -or -not $script:KelvinToken) {
-        throw 'Connect-KelvinAccount must be called before invoking any API commands.'
-    }
+    $token = _GetToken
 
-    $url = "$script:KelvinURL/$Path"
+    $url = "$($script:KelvinSession.Url)/$Path"
     Write-Verbose "Invoking API at $url"
 
     if ($Body -is [string] -or $Body -is [int] -or $Body -is [double]) {
@@ -87,7 +85,7 @@ function Invoke-KelvinApi {
         
         Add-Type -AssemblyName System.Net.Http
         $client = New-Object System.Net.Http.HttpClient
-        $client.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:KelvinToken)
+        $client.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $token)
         $client.DefaultRequestHeaders.Accept.Add((New-Object System.Net.Http.Headers.MediaTypeWithQualityHeaderValue($Accept)))
         $client.DefaultRequestHeaders.Add('User-Agent', 'PoshKelvin/1.0')
         
@@ -108,7 +106,7 @@ function Invoke-KelvinApi {
         -Method $Method `
         -Body $requestBody `
         -ContentType $BodyContentType `
-        -Headers @{ Authorization = "Bearer $script:KelvinToken" } `
+        -Headers @{ Authorization = "Bearer $token" } `
         -TypeName $TypeName
 }
 

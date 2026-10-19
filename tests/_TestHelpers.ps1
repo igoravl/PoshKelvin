@@ -10,6 +10,7 @@ function Set-KelvinTestConnection {
         $script:KelvinSession = [PSCustomObject]@{
             Url                   = 'https://kelvin.example.com/api/v4'
             TokenUrl              = 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/token'
+            LogoutUrl             = 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/logout'
             ClientId              = 'kelvin-client'
             Username              = 'test-user'
             Password              = ConvertTo-SecureString 'test-password' -AsPlainText -Force

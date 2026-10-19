@@ -7,6 +7,44 @@ BeforeAll {
 
 Describe 'Disconnect-KelvinAccount' {
 
+    BeforeEach {
+        Mock Invoke-RestMethod { } -ModuleName PoshKelvin -ParameterFilter { $Uri -like '*/logout' }
+    }
+
+    It 'Calls the logout endpoint with the refresh token' {
+        Set-KelvinTestConnection
+
+        Disconnect-KelvinAccount
+
+        Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+            $Uri -eq 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/logout' -and
+            $Method -eq 'Post' -and
+            $Body.client_id -eq 'kelvin-client' -and
+            $Body.refresh_token -eq 'test-refresh-token'
+        }
+    }
+
+    It 'Skips the logout endpoint when there is no refresh token' {
+        Set-KelvinTestConnection
+        & (Get-Module PoshKelvin) { $script:KelvinSession.RefreshToken = $null }
+
+        Disconnect-KelvinAccount
+
+        Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 0 -Exactly
+        & (Get-Module PoshKelvin) { $script:KelvinSession } | Should -BeNullOrEmpty
+    }
+
+    It 'Warns and still clears the session when the logout request fails' {
+        Set-KelvinTestConnection
+        Mock Invoke-RestMethod { throw 'Network error' } -ModuleName PoshKelvin -ParameterFilter { $Uri -like '*/logout' }
+
+        Disconnect-KelvinAccount -WarningVariable warnings -WarningAction SilentlyContinue
+
+        $warnings | Should -HaveCount 1
+        $warnings[0] | Should -BeLike '*server-side*'
+        & (Get-Module PoshKelvin) { $script:KelvinSession } | Should -BeNullOrEmpty
+    }
+
     It 'Clears the session' {
         Set-KelvinTestConnection
 

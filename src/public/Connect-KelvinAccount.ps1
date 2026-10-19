@@ -86,6 +86,7 @@ function Connect-KelvinAccount {
     $session = [PSCustomObject]@{
         Url                   = $endpointUrl
         TokenUrl              = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/token"
+        LogoutUrl             = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/logout"
         ClientId              = 'kelvin-client'
         Username              = $Username
         Password              = $Password

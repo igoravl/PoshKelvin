@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-20
+
 ### Added
 
 - `-Interactive` switch on `Connect-KelvinAccount` to sign in through the default browser using native OAuth authorization code with PKCE (S256) and state validation. Uses the public `kelvin-client` client and `http://localhost:38638/` callback by default; `KELVIN_AUTH_REDIRECT_URI` overrides the loopback URL. No password or browser dependencies are required. `-Timeout` sets how long to wait (default: 300 seconds). See [docs/interactive-authentication.md](docs/interactive-authentication.md).
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Sessions now record their authentication mode. Interactive sessions renew tokens with the refresh token and ask for a new `Connect-KelvinAccount -Interactive` when it expires; `Update-KelvinToken -Force` reports that it is unavailable for them.
+- Interactive sign-in always prints the authorization URL before attempting to open the default browser, so it can be opened manually if no browser window appears (for example, on WSL or Linux).
 
 ## [0.5.0] - 2026-10-19
 

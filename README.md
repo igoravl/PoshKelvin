@@ -6,6 +6,8 @@ PowerShell module to interact with [Kelvin](https://kelvin.ai/) instances and si
 
 - PowerShell 5.1+ / PowerShell 7+
 - Network access to your Kelvin instance
+- For interactive (browser) sign-in: PowerShell 7+ and the prerequisites
+  described in [Interactive authentication](docs/interactive-authentication.md)
 
 ## Installation
 
@@ -27,6 +29,14 @@ Install-Module PoshKelvin -Scope CurrentUser
 
    ```powershell
    Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Credential $cred
+   ```
+
+   Alternatively, on PowerShell 7+, sign in through the browser. This works
+   with SSO and multi-factor authentication (see
+   [Interactive authentication](docs/interactive-authentication.md)):
+
+   ```powershell
+   Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive
    ```
 
 1. Run commands, for example list workloads for a cluster:
@@ -70,6 +80,9 @@ Both commands return `Status` (`Refreshed` or `Reauthenticated`),
 or credentials. Failed operations raise an error and return no status object.
 Normal refresh does not fall back to re-authentication; use `-Force` if the
 refresh token is unavailable or rejected.
+
+Interactive sessions store no password. When their refresh token expires, run
+`Connect-KelvinAccount -Interactive` again; `-Force` is not available for them.
 
 ## Streaming list defaults
 
@@ -162,6 +175,8 @@ Notes:
 
 - **Authentication errors** — re-run `Connect-KelvinAccount` with valid
   credentials.
+- **Interactive sign-in problems**: see the troubleshooting section in
+  [Interactive authentication](docs/interactive-authentication.md#troubleshooting).
 - **Network/timeouts** — ensure the Kelvin host is reachable from your machine
   and required ports are open.
 - **Check available commands** — `Get-Command -Module PoshKelvin`

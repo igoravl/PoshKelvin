@@ -47,6 +47,9 @@ function _GetToken {
 
     if (-not $session.Username -or -not $session.Password) {
         Write-Verbose 'Cannot re-authenticate: the session has no cached credentials.'
+        if ($session.AuthenticationMode -eq 'Interactive') {
+            throw 'The interactive session has expired and cannot be renewed. Use Connect-KelvinAccount -Interactive again.'
+        }
         throw 'Session expired and no cached credentials are available. Use Connect-KelvinAccount again.'
     }
 

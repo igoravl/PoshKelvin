@@ -28,3 +28,6 @@ Thumbs.db
 
 # Test results
 testResults.xml
+
+# Local reference material (may contain tokens and internal hosts)
+.reference-data/

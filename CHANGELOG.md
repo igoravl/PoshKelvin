@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `-Interactive` switch on `Connect-KelvinAccount` (PowerShell 7+) to sign in through the Kelvin web login page in a Playwright-controlled Chromium window, supporting SSO and multi-factor authentication. Tokens are read from the Kelvin UI session; no password is stored. `-Timeout` sets how long to wait for the sign-in (default: 300 seconds).
+- `scripts/Install-KelvinInteractivePrerequisites.ps1`, which installs Playwright and Chromium into a per-user folder (configurable with `POSHKELVIN_PLAYWRIGHT_PATH`). `Connect-KelvinAccount -Interactive` offers to run it when the prerequisites are missing. See [docs/interactive-authentication.md](docs/interactive-authentication.md).
+
+### Changed
+
+- Sessions now record their authentication mode. Interactive sessions renew tokens with the refresh token and ask for a new `Connect-KelvinAccount -Interactive` when it expires; `Update-KelvinToken -Force` reports that it is unavailable for them.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added

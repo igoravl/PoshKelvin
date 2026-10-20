@@ -14,6 +14,8 @@
 
     A failed refresh raises an error rather than falling back to password
     authentication. Use -Force if the refresh token is unavailable or rejected.
+    Sessions created with Connect-KelvinAccount -Interactive have no cached
+    credentials, so -Force is not available for them; connect again instead.
     No status object is returned when the operation fails.
 
 .OUTPUTS
@@ -52,6 +54,9 @@ function Update-KelvinToken {
     if ($Force) {
         if (-not $session.Username -or -not $session.Password) {
             Write-Verbose 'Cannot re-authenticate: the session has no cached credentials.'
+            if ($session.AuthenticationMode -eq 'Interactive') {
+                throw 'Interactive sessions have no cached credentials. Use Update-KelvinToken without -Force, or Connect-KelvinAccount -Interactive again.'
+            }
             throw 'No cached credentials are available. Use Connect-KelvinAccount again.'
         }
 

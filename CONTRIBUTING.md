@@ -32,16 +32,6 @@ Thank you for your interest in contributing to PoshKelvin!
    ./build.ps1 -Task Test
    ```
 
-   Tests that drive a real browser are skipped by default. To run them,
-   install the interactive authentication prerequisites (see
-   [docs/interactive-authentication.md](docs/interactive-authentication.md)),
-   set `POSHKELVIN_BROWSER_TESTS=1`, and run that test file on its own:
-
-   ```powershell
-   $env:POSHKELVIN_BROWSER_TESTS = '1'
-   Invoke-Pester ./tests/_InvokeKelvinBrowserLogin.Tests.ps1
-   ```
-
 ## Coding Conventions
 
 Please follow the conventions described in [AGENTS.md](AGENTS.md):

@@ -20,7 +20,6 @@ Describe 'Native OAuth authentication' {
         $script:accessToken = New-KelvinTestJwt @{ preferred_username = 'user@example.com' }
         & (Get-Module PoshKelvin) { $script:KelvinSession = $null }
 
-        Mock _GetPlaywrightInfo { throw 'Native OAuth must not load Playwright.' } -ModuleName PoshKelvin
         Mock Invoke-RestMethod {
             if ($Body.grant_type -eq 'authorization_code') { $script:codeBody = $Body.Clone() }
             @{
@@ -196,10 +195,13 @@ Describe 'Native OAuth authentication' {
         Should -Invoke Start-Process -ModuleName PoshKelvin -Times 0 -Exactly
     }
 
-    It 'Reports browser launch failures without leaking the authorization URL' {
-        Mock Start-Process { throw "Failed to open $FilePath" } -ModuleName PoshKelvin
-        { Connect-KelvinAccount 'https://kelvin.example.com' -Interactive -ErrorAction Stop } |
-            Should -Throw '*Unable to open the default browser*'
+    It 'Prints the sign-in URL when the default browser cannot be opened' {
+        Mock Start-Process { throw 'No default browser' } -ModuleName PoshKelvin
+        Mock Write-Host { if ($Object -like 'https://*') { $script:printedUrl = $Object } } -ModuleName PoshKelvin
+        $script:printedUrl = $null
+        { Connect-KelvinAccount 'https://kelvin.example.com' -Interactive -Timeout 1 -ErrorAction Stop -WarningVariable warnings -WarningAction SilentlyContinue } |
+            Should -Throw '*Timed out after 1 seconds*'
+        $script:printedUrl | Should -BeLike 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/auth?client_id=kelvin-client&*'
         Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 0 -Exactly
     }
 

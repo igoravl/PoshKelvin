@@ -42,36 +42,3 @@ function New-KelvinTestJwt {
     }
     '{0}.{1}.signature' -f (& $encode '{"alg":"none","typ":"JWT"}'), (& $encode ($Claims | ConvertTo-Json -Compress))
 }
-
-# Returns the Unix time (seconds) for a point relative to now.
-function Get-KelvinTestUnixTime {
-    param ([int] $OffsetSeconds = 0)
-    [DateTimeOffset]::UtcNow.AddSeconds($OffsetSeconds).ToUnixTimeSeconds()
-}
-
-# Builds a Kelvin UI (NextAuth) session JSON document with JWT tokens.
-function New-KelvinTestSessionJson {
-    param (
-        [int] $AccessLifetime = 3600,
-        [int] $RefreshLifetime = 7200,
-        [string] $ClientId = 'kelvin-core',
-        [switch] $NoRefreshToken
-    )
-    $token = [ordered]@{
-        name        = 'Test User'
-        email       = 'user@example.com'
-        accessToken = New-KelvinTestJwt @{ exp = Get-KelvinTestUnixTime $AccessLifetime; azp = $ClientId; typ = 'Bearer' }
-        idToken     = New-KelvinTestJwt @{ exp = Get-KelvinTestUnixTime $AccessLifetime; typ = 'ID' }
-        expiresIn   = 1790722234
-        iat         = Get-KelvinTestUnixTime
-        exp         = Get-KelvinTestUnixTime 600
-    }
-    if (-not $NoRefreshToken) {
-        $token.refreshToken = New-KelvinTestJwt @{ exp = Get-KelvinTestUnixTime $RefreshLifetime; azp = $ClientId; typ = 'Refresh' }
-    }
-    [ordered]@{
-        user    = @{ name = 'Test User'; email = 'user@example.com' }
-        expires = [DateTime]::UtcNow.AddMinutes(10).ToString('o')
-        token   = $token
-    } | ConvertTo-Json -Depth 5
-}

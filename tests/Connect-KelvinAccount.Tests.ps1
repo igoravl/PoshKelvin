@@ -191,40 +191,34 @@ Describe 'Connect-KelvinAccount' {
 
     Context 'Interactive authentication' {
 
-        BeforeAll {
-            $script:installedInfo = [PSCustomObject]@{
-                Version = '1.0.0'; Root = '/pw'; IsInstalled = $true; Missing = @()
-            }
-        }
-
         BeforeEach {
             & (Get-Module PoshKelvin) { $script:KelvinSession = $null }
-            $script:sessionJson = New-KelvinTestSessionJson
-            Mock _GetPlaywrightInfo { $script:installedInfo } -ModuleName PoshKelvin
-            Mock _InvokeKelvinBrowserLogin { $script:sessionJson } -ModuleName PoshKelvin
-            Mock _ConfirmPrerequisiteInstall { $false } -ModuleName PoshKelvin
+            Mock _InvokeKelvinOAuthLogin {
+                $Session.AccessToken = 'oauth-access-token'
+                $Session.AccessTokenExpiresAt = [DateTime]::UtcNow.AddHours(1)
+                $Session.RefreshToken = 'oauth-refresh-token'
+                $Session.RefreshTokenExpiresAt = [DateTime]::UtcNow.AddHours(2)
+                $Session.Username = 'user@example.com'
+            } -ModuleName PoshKelvin
             Mock Invoke-RestMethod { throw 'No token endpoint request expected.' } -ModuleName PoshKelvin
         }
 
-        It 'Stores the tokens read from the browser session' {
-            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser
+        It 'Stores an interactive session for the public kelvin-client' {
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive
 
-            $expected = $script:sessionJson | ConvertFrom-Json
             $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
-            $session.AccessToken | Should -Be $expected.token.accessToken
-            $session.RefreshToken | Should -Be $expected.token.refreshToken
-            $session.ClientId | Should -Be 'kelvin-core'
+            $session.AccessToken | Should -Be 'oauth-access-token'
+            $session.RefreshToken | Should -Be 'oauth-refresh-token'
+            $session.ClientId | Should -Be 'kelvin-client'
             $session.Username | Should -Be 'user@example.com'
             $session.Password | Should -BeNullOrEmpty
             $session.AuthenticationMode | Should -Be 'Interactive'
-            $session.AccessTokenExpiresAt | Should -BeGreaterThan ([DateTime]::UtcNow.AddMinutes(59))
-            Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 0 -Exactly
         }
 
-        It 'Uses the service root for the browser and the API version for the session URL' {
-            Connect-KelvinAccount -Url 'https://kelvin.example.com/api/v5' -Interactive -UseInternalBrowser -RefreshWindow 30
+        It 'Uses the service root for sign-in and the API version for the session URL' {
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/api/v5' -Interactive -RefreshWindow 30
 
-            Should -Invoke _InvokeKelvinBrowserLogin -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+            Should -Invoke _InvokeKelvinOAuthLogin -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
                 $BaseUrl -eq 'https://kelvin.example.com' -and $Timeout -eq 300
             }
             $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
@@ -235,9 +229,9 @@ Describe 'Connect-KelvinAccount' {
         }
 
         It 'Forwards a custom -Timeout and -ApiVersion' {
-            Connect-KelvinAccount 'https://kelvin.example.com/' -Interactive -UseInternalBrowser -Timeout 42 -ApiVersion v3
+            Connect-KelvinAccount 'https://kelvin.example.com/' -Interactive -Timeout 42 -ApiVersion v3
 
-            Should -Invoke _InvokeKelvinBrowserLogin -ModuleName PoshKelvin -ParameterFilter { $Timeout -eq 42 }
+            Should -Invoke _InvokeKelvinOAuthLogin -ModuleName PoshKelvin -ParameterFilter { $Timeout -eq 42 }
             & (Get-Module PoshKelvin) { $script:KelvinSession.Url } | Should -Be 'https://kelvin.example.com/api/v3'
         }
 
@@ -245,7 +239,7 @@ Describe 'Connect-KelvinAccount' {
             $env:KELVIN_USERNAME = 'env-user'
             $env:KELVIN_PASSWORD = 'env-pass'
             try {
-                Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser
+                Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive
 
                 $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
                 $session.Username | Should -Be 'user@example.com'
@@ -258,12 +252,12 @@ Describe 'Connect-KelvinAccount' {
         }
 
         It 'Does not write to the pipeline' {
-            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser | Should -BeNullOrEmpty
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive | Should -BeNullOrEmpty
         }
 
         It 'Cannot be combined with -Credentials' {
             $cred = [pscredential]::new('admin', (ConvertTo-SecureString 'pass' -AsPlainText -Force))
-            { Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser -Credentials $cred } |
+            { Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -Credentials $cred } |
                 Should -Throw -ErrorId 'AmbiguousParameterSet,Connect-KelvinAccount'
         }
 
@@ -273,65 +267,13 @@ Describe 'Connect-KelvinAccount' {
                 Should -Throw -ErrorId 'AmbiguousParameterSet,Connect-KelvinAccount'
         }
 
-        It 'Keeps the existing session when the browser sign-in fails' {
+        It 'Keeps the existing session when the sign-in fails' {
             Set-KelvinTestConnection
-            Mock _InvokeKelvinBrowserLogin { throw 'Timed out after 300 seconds waiting for interactive authentication to complete.' } -ModuleName PoshKelvin
+            Mock _InvokeKelvinOAuthLogin { throw 'Timed out after 300 seconds waiting for OAuth authentication.' } -ModuleName PoshKelvin
 
-            { Connect-KelvinAccount -Url 'https://other.example.com/' -Interactive -UseInternalBrowser -ErrorAction Stop } |
+            { Connect-KelvinAccount -Url 'https://other.example.com/' -Interactive -ErrorAction Stop } |
                 Should -Throw '*Timed out*'
             & (Get-Module PoshKelvin) { $script:KelvinSession.AccessToken } | Should -Be 'test-bearer-token'
-        }
-
-        It 'Does not create a session when the browser session is empty' {
-            $script:sessionJson = '{}'
-
-            { Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser -ErrorAction Stop } |
-                Should -Throw '*empty or has expired*'
-            & (Get-Module PoshKelvin) { $script:KelvinSession } | Should -BeNullOrEmpty
-        }
-
-        Context 'Missing prerequisites' {
-
-            BeforeEach {
-                $script:missingInfo = [PSCustomObject]@{
-                    Version = '1.0.0'; Root = '/pw'; IsInstalled = $false; Missing = @('Chromium browser')
-                }
-                Mock _GetPlaywrightInfo { $script:missingInfo } -ModuleName PoshKelvin
-            }
-
-            It 'Refers to the documentation and the setup script when the user declines' {
-                { Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser -ErrorAction Stop } |
-                    Should -Throw '*Chromium browser*docs/interactive-authentication.md*Install-KelvinInteractivePrerequisites.ps1*'
-
-                Should -Invoke _ConfirmPrerequisiteInstall -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter { $Path -eq '/pw' }
-                Should -Invoke _InvokeKelvinBrowserLogin -ModuleName PoshKelvin -Times 0 -Exactly
-                & (Get-Module PoshKelvin) { $script:KelvinSession } | Should -BeNullOrEmpty
-            }
-
-            It 'Runs the setup script when the user accepts and continues when it succeeds' {
-                $script:setupMarker = Join-Path $TestDrive 'setup-ran'
-                $env:POSHKELVIN_TEST_SETUP_MARKER = $script:setupMarker
-                Mock _ConfirmPrerequisiteInstall { $true } -ModuleName PoshKelvin
-                Mock _GetPlaywrightInfo {
-                    if (Test-Path $env:POSHKELVIN_TEST_SETUP_MARKER) { $script:installedInfo } else { $script:missingInfo }
-                } -ModuleName PoshKelvin
-
-                $moduleBase = (Get-Module PoshKelvin).ModuleBase
-                $scriptPath = Join-Path $moduleBase 'scripts/Install-KelvinInteractivePrerequisites.ps1'
-                $backup = Get-Content -Raw $scriptPath
-                try {
-                    Set-Content -Path $scriptPath -Value 'New-Item -ItemType File -Path $env:POSHKELVIN_TEST_SETUP_MARKER | Out-Null'
-                    Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -UseInternalBrowser
-                }
-                finally {
-                    Set-Content -Path $scriptPath -Value $backup -NoNewline
-                    Remove-Item Env:\POSHKELVIN_TEST_SETUP_MARKER -ErrorAction SilentlyContinue
-                }
-
-                Test-Path $script:setupMarker | Should -BeTrue
-                Should -Invoke _InvokeKelvinBrowserLogin -ModuleName PoshKelvin -Times 1 -Exactly
-                & (Get-Module PoshKelvin) { $script:KelvinSession.AuthenticationMode } | Should -Be 'Interactive'
-            }
         }
     }
 }

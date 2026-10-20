@@ -9,9 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- `-Interactive` switch on `Connect-KelvinAccount` to sign in through the default browser using native OAuth authorization code with PKCE (S256) and state validation. Uses the public `kelvin-client` client and `http://localhost:38638/` callback by default; `KELVIN_AUTH_REDIRECT_URI` overrides the loopback URL. No password or browser dependencies are required. `-Timeout` sets how long to wait (default: 300 seconds).
-- `-UseInternalBrowser` with `-Interactive` selects the Kelvin UI-session fallback (PowerShell 7+), supporting SSO and multi-factor authentication when native OAuth is unavailable.
-- `scripts/Install-KelvinInteractivePrerequisites.ps1`, which installs Playwright and Chromium into a per-user folder (configurable with `POSHKELVIN_PLAYWRIGHT_PATH`). `Connect-KelvinAccount -Interactive -UseInternalBrowser` offers to run it when the prerequisites are missing. See [docs/interactive-authentication.md](docs/interactive-authentication.md).
+- `-Interactive` switch on `Connect-KelvinAccount` to sign in through the default browser using native OAuth authorization code with PKCE (S256) and state validation. Uses the public `kelvin-client` client and `http://localhost:38638/` callback by default; `KELVIN_AUTH_REDIRECT_URI` overrides the loopback URL. No password or browser dependencies are required. `-Timeout` sets how long to wait (default: 300 seconds). See [docs/interactive-authentication.md](docs/interactive-authentication.md).
 
 ### Changed
 

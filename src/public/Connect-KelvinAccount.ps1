@@ -7,7 +7,6 @@
     With -Interactive, opens the default browser and receives an authorization code
     on http://localhost:38638/. Uses PKCE and validates state before exchanging the
     code for tokens. KELVIN_AUTH_REDIRECT_URI overrides the loopback callback URL.
-    Use -Interactive -UseInternalBrowser for the Kelvin UI session fallback (PowerShell 7+).
     Upon successful authentication, stores the connection details, credentials and
     tokens in a module-scoped session object for use by subsequent cmdlets. The
     password is kept as a SecureString, and the access token is refreshed
@@ -17,12 +16,10 @@
     handle token renewal automatically. Use Update-KelvinToken only to test renewal
     or renew tokens earlier than the configured refresh window.
 
-    Use -Interactive for instances that only support single sign-on (SSO). A
-    browser window opens so you can sign in; once the browser returns to Kelvin,
-    the tokens are read from the Kelvin UI session and the browser is closed.
+    Use -Interactive for instances that only support single sign-on (SSO). The
+    default browser opens so you can sign in; no additional software is required.
     No password is stored: when the refresh token expires, run
-    Connect-KelvinAccount -Interactive again. Interactive authentication requires
-    PowerShell 7+ and the prerequisites described in
+    Connect-KelvinAccount -Interactive again. See
     https://github.com/igoravl/PoshKelvin/blob/main/docs/interactive-authentication.md
 
 .EXAMPLE
@@ -52,11 +49,6 @@
     PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -Timeout 600
 
     Waits up to 10 minutes for the browser sign-in to complete.
-
-.EXAMPLE
-    PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -UseInternalBrowser
-
-    Signs in through a built-in browser window that reads the Kelvin UI session instead of using native OAuth.
 #>
 
 function Connect-KelvinAccount {
@@ -75,11 +67,6 @@ function Connect-KelvinAccount {
         # Uses the default browser and an OAuth loopback callback.
         [Parameter(Mandatory = $true, ParameterSetName = 'Interactive')]
         [switch] $Interactive,
-
-        # Signs in through a built-in browser window that reads the Kelvin UI session instead of using native OAuth.
-        # Requires PowerShell 7+ and the internal browser prerequisites.
-        [Parameter(ParameterSetName = 'Interactive')]
-        [switch] $UseInternalBrowser,
 
         # The maximum time, in seconds, to wait for the browser sign-in to complete. Defaults to 300 seconds.
         [Parameter(ParameterSetName = 'Interactive')]
@@ -115,57 +102,19 @@ function Connect-KelvinAccount {
     $logoutUrl = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/logout"
 
     if ($Interactive) {
-        if (-not $UseInternalBrowser) {
-            $session = [PSCustomObject]@{
-                Url                   = $endpointUrl
-                TokenUrl              = $tokenUrl
-                LogoutUrl             = $logoutUrl
-                ClientId              = 'kelvin-client'
-                Username              = $null
-                Password              = $null
-                AccessToken           = $null
-                AccessTokenExpiresAt  = [DateTime]::MinValue
-                RefreshToken          = $null
-                RefreshTokenExpiresAt = [DateTime]::MinValue
-                RefreshWindow         = $RefreshWindow
-                AuthenticationMode    = 'Interactive'
-            }
-            try {
-                _InvokeKelvinOAuthLogin -BaseUrl $baseUrl -Session $session -Timeout $Timeout
-            }
-            catch {
-                Write-Error "Interactive OAuth authentication failed: $_"
-                return
-            }
-            $script:KelvinSession = $session
-            Write-Verbose "OAuth session stored. API base URL: $endpointUrl"
-            return
-        }
-        if ($PSVersionTable.PSVersion.Major -lt 7) {
-            Write-Error 'Internal browser authentication requires PowerShell 7 or later. Omit -UseInternalBrowser to use native OAuth on Windows PowerShell.'
-            return
-        }
-
-        $playwright = _GetPlaywrightInfo
-        if (-not $playwright.IsInstalled) {
-            $scriptPath = Join-Path $MyInvocation.MyCommand.Module.ModuleBase 'scripts/Install-KelvinInteractivePrerequisites.ps1'
-
-            if (_ConfirmPrerequisiteInstall -Cmdlet $PSCmdlet -Path $playwright.Root) {
-                try {
-                    & $scriptPath
-                }
-                catch {
-                    Write-Warning "Installing the interactive authentication prerequisites failed: $_"
-                }
-                $playwright = _GetPlaywrightInfo
-            }
-
-            if (-not $playwright.IsInstalled) {
-                Write-Error (("Interactive authentication prerequisites are missing ({0}). " +
-                        "See https://github.com/igoravl/PoshKelvin/blob/main/docs/interactive-authentication.md, " +
-                        "or install them by running: & '{1}'") -f ($playwright.Missing -join ', '), $scriptPath)
-                return
-            }
+        $session = [PSCustomObject]@{
+            Url                   = $endpointUrl
+            TokenUrl              = $tokenUrl
+            LogoutUrl             = $logoutUrl
+            ClientId              = 'kelvin-client'
+            Username              = $null
+            Password              = $null
+            AccessToken           = $null
+            AccessTokenExpiresAt  = [DateTime]::MinValue
+            RefreshToken          = $null
+            RefreshTokenExpiresAt = [DateTime]::MinValue
+            RefreshWindow         = $RefreshWindow
+            AuthenticationMode    = 'Interactive'
         }
 
         if ($script:KelvinSession) {
@@ -173,32 +122,15 @@ function Connect-KelvinAccount {
         }
 
         try {
-            $sessionJson = _InvokeKelvinBrowserLogin -BaseUrl $baseUrl -Timeout $Timeout
-            $tokens = _ConvertFromKelvinAuthSession -Json $sessionJson
+            _InvokeKelvinOAuthLogin -BaseUrl $baseUrl -Session $session -Timeout $Timeout
         }
         catch {
-            Write-Error "Interactive authentication failed: $_"
+            Write-Error "Interactive OAuth authentication failed: $_"
             return
         }
 
-        $script:KelvinSession = [PSCustomObject]@{
-            Url                   = $endpointUrl
-            TokenUrl              = $tokenUrl
-            LogoutUrl             = $logoutUrl
-            ClientId              = $tokens.ClientId
-            Username              = $tokens.Username
-            Password              = $null
-            AccessToken           = $tokens.AccessToken
-            AccessTokenExpiresAt  = $tokens.AccessTokenExpiresAt
-            RefreshToken          = $tokens.RefreshToken
-            RefreshTokenExpiresAt = $tokens.RefreshTokenExpiresAt
-            RefreshWindow         = $RefreshWindow
-            AuthenticationMode    = 'Interactive'
-        }
-
-        Write-Verbose ("Successfully authenticated '{0}' interactively (client '{1}'). Access token expires at {2:o}; refresh token expires at {3:o}" -f `
-                $tokens.Username, $tokens.ClientId, $tokens.AccessTokenExpiresAt, $tokens.RefreshTokenExpiresAt)
-        Write-Verbose "Session stored. API base URL: $endpointUrl"
+        $script:KelvinSession = $session
+        Write-Verbose "OAuth session stored. API base URL: $endpointUrl"
         return
     }
 

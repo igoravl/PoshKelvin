@@ -7,7 +7,7 @@ PowerShell module to interact with [Kelvin](https://kelvin.ai/) instances and si
 - PowerShell 5.1+ / PowerShell 7+
 - Network access to your Kelvin instance
 - For interactive sign-in: a default browser and access to a local callback
-  port (default: 38638). No Playwright installation is required for native OAuth.
+  port (default: 38638). No additional software is required.
   See [Interactive authentication](docs/interactive-authentication.md).
 
 ## Installation
@@ -42,9 +42,7 @@ Install-Module PoshKelvin -Scope CurrentUser
 
    The default redirect is `http://localhost:38638/` (Kelvin 5.2.0+).
    Set `KELVIN_AUTH_REDIRECT_URI` if your administrator registered a different
-   loopback URL. If native login is unavailable, use `-Interactive -UseInternalBrowser`
-   for the built-in browser fallback (PowerShell 7+ and a one-time setup required;
-   see [docs/interactive-authentication.md](docs/interactive-authentication.md)).
+   loopback URL.
 
 1. Run commands, for example list workloads for a cluster:
 

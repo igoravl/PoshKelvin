@@ -7,7 +7,7 @@ BeforeAll {
     function Set-KelvinInteractiveTestConnection {
         Set-KelvinTestConnection
         & (Get-Module PoshKelvin) {
-            $script:KelvinSession.ClientId = 'kelvin-core'
+            $script:KelvinSession.ClientId = 'kelvin-client'
             $script:KelvinSession.Username = 'user@example.com'
             $script:KelvinSession.Password = $null
             $script:KelvinSession | Add-Member -NotePropertyName AuthenticationMode -NotePropertyValue 'Interactive' -Force
@@ -35,7 +35,7 @@ Describe 'Interactive session lifecycle' {
         & (Get-Module PoshKelvin) { _GetToken } | Should -Be 'new-access-token'
 
         Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
-            $Body.grant_type -eq 'refresh_token' -and $Body.client_id -eq 'kelvin-core' -and
+            $Body.grant_type -eq 'refresh_token' -and $Body.client_id -eq 'kelvin-client' -and
             $Body.refresh_token -eq 'test-refresh-token' -and -not $Body.ContainsKey('password')
         }
         & (Get-Module PoshKelvin) { $script:KelvinSession.RefreshToken } | Should -Be 'new-refresh-token'
@@ -72,7 +72,7 @@ Describe 'Interactive session lifecycle' {
         Disconnect-KelvinAccount
 
         Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
-            $Uri -like '*/openid-connect/logout' -and $Body.client_id -eq 'kelvin-core' -and $Body.refresh_token -eq 'test-refresh-token'
+            $Uri -like '*/openid-connect/logout' -and $Body.client_id -eq 'kelvin-client' -and $Body.refresh_token -eq 'test-refresh-token'
         }
         & (Get-Module PoshKelvin) { $script:KelvinSession } | Should -BeNullOrEmpty
     }

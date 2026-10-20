@@ -64,12 +64,12 @@ function _InvokeKelvinOAuthLogin {
         $clock = [Diagnostics.Stopwatch]::StartNew()
         Write-Host "Complete the sign-in in your default browser. Waiting up to $Timeout seconds..."
         try { Start-Process -FilePath $authorizeUrl -ErrorAction Stop | Out-Null }
-        catch { throw 'Unable to open the default browser. Configure a default browser, or use -Interactive -UsePlaywright.' }
+        catch { throw 'Unable to open the default browser. Configure a default browser, or use -Interactive -UseInternalBrowser.' }
 
         $pending = $listener.GetContextAsync()
         while ($true) {
             if ($clock.Elapsed.TotalSeconds -ge $Timeout) {
-                throw "Timed out after $Timeout seconds waiting for OAuth authentication. If the browser shows an HTTP 403, contact your Kelvin administrator. Alternatively, use -Interactive -UsePlaywright."
+                throw "Timed out after $Timeout seconds waiting for OAuth authentication. If the browser shows an HTTP 403, contact your Kelvin administrator. Alternatively, use -Interactive -UseInternalBrowser."
             }
             if (-not $pending.IsCompleted) {
                 Start-Sleep -Milliseconds 100
@@ -136,7 +136,7 @@ function _InvokeKelvinOAuthLogin {
     }
     catch {
         # HTTP error bodies may contain sensitive server details; do not echo them.
-        throw 'OAuth authorization-code exchange failed. Check the client redirect registration and PKCE support with your Kelvin administrator. Use -Interactive -UsePlaywright if the native flow is unavailable.'
+        throw 'OAuth authorization-code exchange failed. Check the client redirect registration and PKCE support with your Kelvin administrator. Use -Interactive -UseInternalBrowser if the native flow is unavailable.'
     }
     $claims = _GetJwtClaims -Token $Session.AccessToken
     $Session.Username = if ($claims.preferred_username) { $claims.preferred_username } elseif ($claims.email) { $claims.email } else { $claims.sub }

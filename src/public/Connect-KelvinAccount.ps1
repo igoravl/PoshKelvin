@@ -7,7 +7,7 @@
     With -Interactive, opens the default browser and receives an authorization code
     on http://localhost:38638/. Uses PKCE and validates state before exchanging the
     code for tokens. KELVIN_AUTH_REDIRECT_URI overrides the loopback callback URL.
-    Use -Interactive -UsePlaywright for the Kelvin UI session fallback (PowerShell 7+).
+    Use -Interactive -UseInternalBrowser for the Kelvin UI session fallback (PowerShell 7+).
     Upon successful authentication, stores the connection details, credentials and
     tokens in a module-scoped session object for use by subsequent cmdlets. The
     password is kept as a SecureString, and the access token is refreshed
@@ -54,9 +54,9 @@
     Waits up to 10 minutes for the browser sign-in to complete.
 
 .EXAMPLE
-    PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -UsePlaywright
+    PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -UseInternalBrowser
 
-    Uses a Playwright-controlled browser to read the Kelvin UI session instead of native OAuth.
+    Signs in through a built-in browser window that reads the Kelvin UI session instead of using native OAuth.
 #>
 
 function Connect-KelvinAccount {
@@ -76,9 +76,10 @@ function Connect-KelvinAccount {
         [Parameter(Mandatory = $true, ParameterSetName = 'Interactive')]
         [switch] $Interactive,
 
-        # Uses the Kelvin UI session through Playwright instead of native OAuth. Requires PowerShell 7+.
+        # Signs in through a built-in browser window that reads the Kelvin UI session instead of using native OAuth.
+        # Requires PowerShell 7+ and the internal browser prerequisites.
         [Parameter(ParameterSetName = 'Interactive')]
-        [switch] $UsePlaywright,
+        [switch] $UseInternalBrowser,
 
         # The maximum time, in seconds, to wait for the browser sign-in to complete. Defaults to 300 seconds.
         [Parameter(ParameterSetName = 'Interactive')]
@@ -114,7 +115,7 @@ function Connect-KelvinAccount {
     $logoutUrl = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/logout"
 
     if ($Interactive) {
-        if (-not $UsePlaywright) {
+        if (-not $UseInternalBrowser) {
             $session = [PSCustomObject]@{
                 Url                   = $endpointUrl
                 TokenUrl              = $tokenUrl
@@ -141,7 +142,7 @@ function Connect-KelvinAccount {
             return
         }
         if ($PSVersionTable.PSVersion.Major -lt 7) {
-            Write-Error 'Playwright authentication requires PowerShell 7 or later. Omit -UsePlaywright to use native OAuth on Windows PowerShell.'
+            Write-Error 'Internal browser authentication requires PowerShell 7 or later. Omit -UseInternalBrowser to use native OAuth on Windows PowerShell.'
             return
         }
 

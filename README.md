@@ -42,8 +42,9 @@ Install-Module PoshKelvin -Scope CurrentUser
 
    The default redirect is `http://localhost:38638/` (Kelvin 5.2.0+).
    Set `KELVIN_AUTH_REDIRECT_URI` if your administrator registered a different
-   loopback URL. If native login is unavailable, use `-Interactive -UsePlaywright`
-   for the UI-session fallback (PowerShell 7+ and Playwright required).
+   loopback URL. If native login is unavailable, use `-Interactive -UseInternalBrowser`
+   for the built-in browser fallback (PowerShell 7+ and a one-time setup required;
+   see [docs/interactive-authentication.md](docs/interactive-authentication.md)).
 
 1. Run commands, for example list workloads for a cluster:
 

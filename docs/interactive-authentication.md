@@ -1,21 +1,81 @@
 # Interactive authentication
 
-`Connect-KelvinAccount -Interactive` signs in through the Kelvin web login
-page. Use it with any identity provider configured in Kelvin, including single
-sign-on (SSO) and multi-factor authentication. PoshKelvin opens a browser
-window, waits while you sign in, and then reads the session tokens from the
-Kelvin UI. It never sees or stores your password.
+`Connect-KelvinAccount -Interactive` uses native OAuth authorization-code login
+with PKCE (S256). It opens your default browser, lets you complete single sign-on
+(SSO) and multi-factor authentication, and receives the result through a local
+HTTP callback. It never sees or stores your password and does not read the Kelvin
+UI session. No Playwright or Chromium installation is needed.
 
 ## Requirements
 
-- PowerShell 7 or later. Windows PowerShell 5.1 supports only credential
-  (username and password) authentication.
-- [Playwright for .NET](https://playwright.dev/dotnet/) and a Chromium browser,
-  installed once per user with the prerequisites script described below.
-- A desktop session that can show a browser window. On Linux this means an X11
-  or Wayland display, such as WSLg under WSL.
+- PowerShell 5.1 or later and an accessible default browser.
+- An HTTPS Kelvin instance with the public Keycloak client `kelvin-client`,
+  authorization-code login and PKCE enabled.
+- A registered loopback redirect URI. Kelvin 5.2.0+ registers
+  `http://localhost:38638/*` by default; only port **38638** is allowed by that
+  default registration.
+- Permission to listen on the local callback port. The browser must be able to
+  reach the PowerShell host through that loopback address.
 
-## Installing the prerequisites
+## Signing in with native OAuth
+
+```powershell
+Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive
+```
+
+1. PoshKelvin starts a listener on `http://localhost:38638/`, then opens your
+   default browser on the Keycloak authorization endpoint.
+1. Sign in through the identity provider as usual. Your existing browser SSO
+   session can be reused.
+1. Keycloak redirects to the local listener. PoshKelvin validates a random state
+   value and exchanges the authorization code using a per-login PKCE verifier.
+1. The listener closes, and the tokens are stored in the module session.
+
+The authorization request uses `client_id=kelvin-client`, `scope=openid`,
+`response_type=code` and `code_challenge_method=S256`. No client secret is used.
+The same redirect URI is used for authorization and token exchange.
+
+PoshKelvin waits up to 300 seconds. Use `-Timeout 600` to allow more time.
+Closing the browser does not signal cancellation; interrupt the command or let
+it time out. A failure leaves any previously established module session intact.
+The browser tab can be closed after the callback; PoshKelvin does not close your
+normal browser or clear its cookies.
+
+### Overriding the redirect URI
+
+If your installation registers a different callback URL, set:
+
+```powershell
+$env:KELVIN_AUTH_REDIRECT_URI = 'http://localhost:45678/oauth/callback'
+Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive
+```
+
+The override must be an absolute HTTP loopback URL using `localhost` or
+`127.0.0.1`. Literal IPv6 URLs are not supported by the HTTP listener.
+Query strings, fragments, embedded credentials and non-loopback hosts are
+rejected. Custom paths and ports are supported, but the complete URL must
+match the client's redirect registration. Setting this variable does **not**
+change Keycloak's allowlist. It is ignored for password and Playwright login.
+Remove the variable to restore the default:
+
+```powershell
+Remove-Item Env:\KELVIN_AUTH_REDIRECT_URI
+```
+
+## Playwright fallback
+
+If the installation does not support the native flow, select the existing
+UI-session approach explicitly:
+
+```powershell
+Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive -UsePlaywright
+```
+
+There is no automatic fallback after OAuth failure. Playwright requires
+PowerShell 7+, [Playwright for .NET](https://playwright.dev/dotnet/), Chromium
+and a graphical desktop (X11, Wayland or WSLg on Linux).
+
+### Installing the Playwright prerequisites
 
 PoshKelvin includes the script `Install-KelvinInteractivePrerequisites.ps1`.
 It downloads the Microsoft.Playwright package from nuget.org and keeps only
@@ -28,7 +88,7 @@ $module = Get-Module PoshKelvin -ListAvailable | Sort-Object Version -Descending
 & (Join-Path $module.ModuleBase 'scripts/Install-KelvinInteractivePrerequisites.ps1')
 ```
 
-If the prerequisites are missing when you run `Connect-KelvinAccount -Interactive`
+If the prerequisites are missing when you run `Connect-KelvinAccount -Interactive -UsePlaywright`
 in an interactive session, PoshKelvin offers to run the script for you.
 
 | Platform    | Default location                                          |
@@ -43,7 +103,7 @@ the script. PoshKelvin reads the same variable when it connects.
 The download is about 380 MB: about 210 MB for the Playwright package and
 170 MB for Chromium. After installation the files use about 550 MB of disk.
 
-### Script options
+### Playwright setup script options
 
 | Parameter           | Description                                                        |
 |---------------------|--------------------------------------------------------------------|
@@ -56,10 +116,10 @@ On a minimal Linux system Chromium may fail to start because shared libraries
 are missing. In that case run the script with `-WithDependencies` as root, or
 install the libraries with your distribution's package manager.
 
-## Signing in
+### Signing in with Playwright
 
 ```powershell
-Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive
+Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive -UsePlaywright
 ```
 
 1. A Chromium window opens on the Kelvin login page.
@@ -71,7 +131,7 @@ By default PoshKelvin waits up to 300 seconds. To change the wait, use
 `-Timeout` (in seconds):
 
 ```powershell
-Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive -Timeout 600
+Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive -UsePlaywright -Timeout 600
 ```
 
 The browser uses a temporary profile, so no cookies or other data are kept
@@ -96,12 +156,32 @@ the local session.
 
 ## Troubleshooting
 
-- **"Interactive authentication requires PowerShell 7 or later"**: run the
-  command from `pwsh` instead of Windows PowerShell.
+- **"Invalid parameter: redirect_uri"**: check `KELVIN_AUTH_REDIRECT_URI` against
+  the client's registered URLs. Kelvin's default permits port 38638, not an
+  arbitrary port.
+- **HTTP 403 after Microsoft sign-in**: this may require investigation by the
+  Kelvin administrator. Note the failing page's origin and path, but redact
+  query values, authorization codes, state and tokens before sharing diagnostics.
+  Native login eventually times out if no callback arrives. You can explicitly
+  try `-Interactive -UsePlaywright`.
+- **"Cannot start the OAuth callback listener"**: another login or application
+  may be using the port. Close that login or ask the administrator to register
+  another redirect. On Windows, HTTP listener URL reservations may also require
+  administrator configuration; do not run a privileged shell just to sign in.
+- **WSL, SSH or remote shells**: the default browser must be reachable and its
+  `localhost` callback must reach this PowerShell process. Check WSL localhost
+  forwarding if the browser runs on Windows. A remote browser's loopback address
+  normally refers to the wrong host; use a local PowerShell session instead.
+- **"OAuth callback state ... does not match"**: no code was exchanged. Start a
+  new login and do not reuse callback URLs from old tabs.
+- **"OAuth authorization-code exchange failed"**: verify the client's redirect,
+  authorization-code grant and PKCE settings with the administrator.
+- **"Playwright authentication requires PowerShell 7 or later"**: omit
+  `-UsePlaywright` for native OAuth, or run the fallback from `pwsh`.
 - **"Interactive authentication prerequisites are missing"**: run the
   prerequisites script. If you use a custom folder, make sure
   `POSHKELVIN_PLAYWRIGHT_PATH` points to it in the current session.
-- **The browser does not open on Linux or WSL**: check that a display is
+- **The Playwright browser does not open on Linux or WSL**: check that a display is
   available (`echo $DISPLAY` or `echo $WAYLAND_DISPLAY`), and install
   Chromium's dependencies with `-WithDependencies` if needed.
 - **"Timed out after N seconds"**: sign in faster, or use a larger `-Timeout`.
@@ -115,8 +195,11 @@ the local session.
 
 - The tokens are kept in memory only, in the module session, as they are for
   credential sessions.
-- PoshKelvin reads the session JSON only from the Kelvin instance you
-  connect to, and only after the identity provider redirects back to it.
-- The JWT claims are decoded only to read expiration times, the client ID and
-  the username. They are not used to make security decisions; the Kelvin API
-  validates the tokens.
+- Native login accepts only loopback HTTP callbacks, checks state, and uses PKCE.
+  It sends tokens only over HTTPS to the selected Kelvin instance. The callback
+  page never displays codes or tokens.
+- Native token expiration dates come from the token endpoint response. JWT
+  claims are decoded only for username metadata; the Kelvin API validates tokens.
+- With `-UsePlaywright`, PoshKelvin reads the session JSON only from the selected
+  Kelvin instance after the identity provider callback. JWT claims are used for
+  expiration times, client ID and username metadata, not authorization decisions.

@@ -3,7 +3,11 @@
     Connects to a Kelvin instance.
 
 .DESCRIPTION
-    Authenticates against a Kelvin service using the provided URL and credentials.
+    Authenticates against a Kelvin service using credentials or interactive OAuth.
+    With -Interactive, opens the default browser and receives an authorization code
+    on http://localhost:38638/. Uses PKCE and validates state before exchanging the
+    code for tokens. KELVIN_AUTH_REDIRECT_URI overrides the loopback callback URL.
+    Use -Interactive -UsePlaywright for the Kelvin UI session fallback (PowerShell 7+).
     Upon successful authentication, stores the connection details, credentials and
     tokens in a module-scoped session object for use by subsequent cmdlets. The
     password is kept as a SecureString, and the access token is refreshed
@@ -48,6 +52,11 @@
     PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -Timeout 600
 
     Waits up to 10 minutes for the browser sign-in to complete.
+
+.EXAMPLE
+    PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -UsePlaywright
+
+    Uses a Playwright-controlled browser to read the Kelvin UI session instead of native OAuth.
 #>
 
 function Connect-KelvinAccount {
@@ -63,9 +72,13 @@ function Connect-KelvinAccount {
         [pscredential] $Credentials,
 
         # Signs in through a browser window (single sign-on) instead of using a username and password.
-        # Requires PowerShell 7+ and the Playwright prerequisites.
+        # Uses the default browser and an OAuth loopback callback.
         [Parameter(Mandatory = $true, ParameterSetName = 'Interactive')]
         [switch] $Interactive,
+
+        # Uses the Kelvin UI session through Playwright instead of native OAuth. Requires PowerShell 7+.
+        [Parameter(ParameterSetName = 'Interactive')]
+        [switch] $UsePlaywright,
 
         # The maximum time, in seconds, to wait for the browser sign-in to complete. Defaults to 300 seconds.
         [Parameter(ParameterSetName = 'Interactive')]
@@ -101,8 +114,34 @@ function Connect-KelvinAccount {
     $logoutUrl = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/logout"
 
     if ($Interactive) {
+        if (-not $UsePlaywright) {
+            $session = [PSCustomObject]@{
+                Url                   = $endpointUrl
+                TokenUrl              = $tokenUrl
+                LogoutUrl             = $logoutUrl
+                ClientId              = 'kelvin-client'
+                Username              = $null
+                Password              = $null
+                AccessToken           = $null
+                AccessTokenExpiresAt  = [DateTime]::MinValue
+                RefreshToken          = $null
+                RefreshTokenExpiresAt = [DateTime]::MinValue
+                RefreshWindow         = $RefreshWindow
+                AuthenticationMode    = 'Interactive'
+            }
+            try {
+                _InvokeKelvinOAuthLogin -BaseUrl $baseUrl -Session $session -Timeout $Timeout
+            }
+            catch {
+                Write-Error "Interactive OAuth authentication failed: $_"
+                return
+            }
+            $script:KelvinSession = $session
+            Write-Verbose "OAuth session stored. API base URL: $endpointUrl"
+            return
+        }
         if ($PSVersionTable.PSVersion.Major -lt 7) {
-            Write-Error 'Interactive authentication requires PowerShell 7 or later. Use -Credentials on Windows PowerShell.'
+            Write-Error 'Playwright authentication requires PowerShell 7 or later. Omit -UsePlaywright to use native OAuth on Windows PowerShell.'
             return
         }
 

@@ -52,6 +52,7 @@ function Connect-KelvinAccount {
         # The refresh window (in seconds) before the access token expires. If the token 
         # is set to expire within this window, it will be refreshed. Defaults to 120 seconds (2 minutes).
         [Parameter()]
+        [ValidateRange(0, 2147483647)]
         [int] $RefreshWindow = 120
     )
 

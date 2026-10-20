@@ -32,3 +32,13 @@ function New-KelvinObject {
     }
     return $obj
 }
+
+# Builds an unsigned JWT with the given payload claims. Only the payload is meaningful to the module.
+function New-KelvinTestJwt {
+    param ([hashtable] $Claims = @{})
+    $encode = {
+        param ([string] $Text)
+        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Text)).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    }
+    '{0}.{1}.signature' -f (& $encode '{"alg":"none","typ":"JWT"}'), (& $encode ($Claims | ConvertTo-Json -Compress))
+}

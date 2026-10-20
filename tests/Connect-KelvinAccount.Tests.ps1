@@ -188,4 +188,92 @@ Describe 'Connect-KelvinAccount' {
                 Should -Throw
         }
     }
+
+    Context 'Interactive authentication' {
+
+        BeforeEach {
+            & (Get-Module PoshKelvin) { $script:KelvinSession = $null }
+            Mock _InvokeKelvinOAuthLogin {
+                $Session.AccessToken = 'oauth-access-token'
+                $Session.AccessTokenExpiresAt = [DateTime]::UtcNow.AddHours(1)
+                $Session.RefreshToken = 'oauth-refresh-token'
+                $Session.RefreshTokenExpiresAt = [DateTime]::UtcNow.AddHours(2)
+                $Session.Username = 'user@example.com'
+            } -ModuleName PoshKelvin
+            Mock Invoke-RestMethod { throw 'No token endpoint request expected.' } -ModuleName PoshKelvin
+        }
+
+        It 'Stores an interactive session for the public kelvin-client' {
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive
+
+            $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
+            $session.AccessToken | Should -Be 'oauth-access-token'
+            $session.RefreshToken | Should -Be 'oauth-refresh-token'
+            $session.ClientId | Should -Be 'kelvin-client'
+            $session.Username | Should -Be 'user@example.com'
+            $session.Password | Should -BeNullOrEmpty
+            $session.AuthenticationMode | Should -Be 'Interactive'
+        }
+
+        It 'Uses the service root for sign-in and the API version for the session URL' {
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/api/v5' -Interactive -RefreshWindow 30
+
+            Should -Invoke _InvokeKelvinOAuthLogin -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                $BaseUrl -eq 'https://kelvin.example.com' -and $Timeout -eq 300
+            }
+            $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
+            $session.Url | Should -Be 'https://kelvin.example.com/api/v5'
+            $session.TokenUrl | Should -Be 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/token'
+            $session.LogoutUrl | Should -Be 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/logout'
+            $session.RefreshWindow | Should -Be 30
+        }
+
+        It 'Forwards a custom -Timeout and -ApiVersion' {
+            Connect-KelvinAccount 'https://kelvin.example.com/' -Interactive -Timeout 42 -ApiVersion v3
+
+            Should -Invoke _InvokeKelvinOAuthLogin -ModuleName PoshKelvin -ParameterFilter { $Timeout -eq 42 }
+            & (Get-Module PoshKelvin) { $script:KelvinSession.Url } | Should -Be 'https://kelvin.example.com/api/v3'
+        }
+
+        It 'Ignores the credential environment variables' {
+            $env:KELVIN_USERNAME = 'env-user'
+            $env:KELVIN_PASSWORD = 'env-pass'
+            try {
+                Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive
+
+                $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
+                $session.Username | Should -Be 'user@example.com'
+                $session.Password | Should -BeNullOrEmpty
+            }
+            finally {
+                Remove-Item Env:\KELVIN_USERNAME -ErrorAction SilentlyContinue
+                Remove-Item Env:\KELVIN_PASSWORD -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Does not write to the pipeline' {
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive | Should -BeNullOrEmpty
+        }
+
+        It 'Cannot be combined with -Credentials' {
+            $cred = [pscredential]::new('admin', (ConvertTo-SecureString 'pass' -AsPlainText -Force))
+            { Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Interactive -Credentials $cred } |
+                Should -Throw -ErrorId 'AmbiguousParameterSet,Connect-KelvinAccount'
+        }
+
+        It 'Rejects -Timeout without -Interactive' {
+            $cred = [pscredential]::new('admin', (ConvertTo-SecureString 'pass' -AsPlainText -Force))
+            { Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Credentials $cred -Timeout 10 } |
+                Should -Throw -ErrorId 'AmbiguousParameterSet,Connect-KelvinAccount'
+        }
+
+        It 'Keeps the existing session when the sign-in fails' {
+            Set-KelvinTestConnection
+            Mock _InvokeKelvinOAuthLogin { throw 'Timed out after 300 seconds waiting for OAuth authentication.' } -ModuleName PoshKelvin
+
+            { Connect-KelvinAccount -Url 'https://other.example.com/' -Interactive -ErrorAction Stop } |
+                Should -Throw '*Timed out*'
+            & (Get-Module PoshKelvin) { $script:KelvinSession.AccessToken } | Should -Be 'test-bearer-token'
+        }
+    }
 }

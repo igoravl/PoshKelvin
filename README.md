@@ -6,6 +6,9 @@ PowerShell module to interact with [Kelvin](https://kelvin.ai/) instances and si
 
 - PowerShell 5.1+ / PowerShell 7+
 - Network access to your Kelvin instance
+- For interactive sign-in: a default browser and access to a local callback
+  port (default: 38638). No additional software is required.
+  See [Interactive authentication](docs/interactive-authentication.md).
 
 ## Installation
 
@@ -28,6 +31,18 @@ Install-Module PoshKelvin -Scope CurrentUser
    ```powershell
    Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Credential $cred
    ```
+
+   Alternatively, sign in through your default browser using native OAuth. This works
+   with SSO and multi-factor authentication (see
+   [Interactive authentication](docs/interactive-authentication.md)):
+
+   ```powershell
+   Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive
+   ```
+
+   The default redirect is `http://localhost:38638/` (Kelvin 5.2.0+).
+   Set `KELVIN_AUTH_REDIRECT_URI` if your administrator registered a different
+   loopback URL.
 
 1. Run commands, for example list workloads for a cluster:
 
@@ -70,6 +85,9 @@ Both commands return `Status` (`Refreshed` or `Reauthenticated`),
 or credentials. Failed operations raise an error and return no status object.
 Normal refresh does not fall back to re-authentication; use `-Force` if the
 refresh token is unavailable or rejected.
+
+Interactive sessions store no password. When their refresh token expires, run
+`Connect-KelvinAccount -Interactive` again; `-Force` is not available for them.
 
 ## Streaming list defaults
 
@@ -162,6 +180,8 @@ Notes:
 
 - **Authentication errors** — re-run `Connect-KelvinAccount` with valid
   credentials.
+- **Interactive sign-in problems**: see the troubleshooting section in
+  [Interactive authentication](docs/interactive-authentication.md#troubleshooting).
 - **Network/timeouts** — ensure the Kelvin host is reachable from your machine
   and required ports are open.
 - **Check available commands** — `Get-Command -Module PoshKelvin`

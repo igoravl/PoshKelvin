@@ -3,7 +3,10 @@
     Connects to a Kelvin instance.
 
 .DESCRIPTION
-    Authenticates against a Kelvin service using the provided URL and credentials.
+    Authenticates against a Kelvin service using credentials or interactive OAuth.
+    With -Interactive, opens the default browser and receives an authorization code
+    on http://localhost:38638/. Uses PKCE and validates state before exchanging the
+    code for tokens. KELVIN_AUTH_REDIRECT_URI overrides the loopback callback URL.
     Upon successful authentication, stores the connection details, credentials and
     tokens in a module-scoped session object for use by subsequent cmdlets. The
     password is kept as a SecureString, and the access token is refreshed
@@ -12,6 +15,12 @@
     It is not necessary to call Update-KelvinToken during normal use: API commands
     handle token renewal automatically. Use Update-KelvinToken only to test renewal
     or renew tokens earlier than the configured refresh window.
+
+    Use -Interactive for instances that only support single sign-on (SSO). The
+    default browser opens so you can sign in; no additional software is required.
+    No password is stored: when the refresh token expires, run
+    Connect-KelvinAccount -Interactive again. See
+    https://github.com/igoravl/PoshKelvin/blob/main/docs/interactive-authentication.md
 
 .EXAMPLE
     PS> $cred = Get-Credential
@@ -30,10 +39,20 @@
     PS> Connect-KelvinAccount https://my-instance.kelvin.ai/
 
     Connects using credentials from environment variables.
+
+.EXAMPLE
+    PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive
+
+    Opens a browser to sign in with single sign-on and connects with the resulting tokens.
+
+.EXAMPLE
+    PS> Connect-KelvinAccount https://my-instance.kelvin.ai/ -Interactive -Timeout 600
+
+    Waits up to 10 minutes for the browser sign-in to complete.
 #>
 
 function Connect-KelvinAccount {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Credentials')]
     param (
         # The base URL of the Kelvin service (e.g. https://my-instance.kelvin.ai/).
         [Parameter(Mandatory = $true, Position = 0)]
@@ -41,8 +60,18 @@ function Connect-KelvinAccount {
 
         # A PSCredential object containing the username and password for authentication.
         # If not supplied, the KELVIN_USERNAME and KELVIN_PASSWORD environment variables are used.
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Credentials')]
         [pscredential] $Credentials,
+
+        # Signs in through a browser window (single sign-on) instead of using a username and password.
+        # Uses the default browser and an OAuth loopback callback.
+        [Parameter(Mandatory = $true, ParameterSetName = 'Interactive')]
+        [switch] $Interactive,
+
+        # The maximum time, in seconds, to wait for the browser sign-in to complete. Defaults to 300 seconds.
+        [Parameter(ParameterSetName = 'Interactive')]
+        [ValidateRange(1, 86400)]
+        [int] $Timeout = 300,
 
         # The API version to target. Defaults to 'v4'.
         [Parameter()]
@@ -69,6 +98,42 @@ function Connect-KelvinAccount {
         Write-Verbose "URL updated to include API version '$ApiVersion': $endpointUrl"
     }
 
+    $tokenUrl = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/token"
+    $logoutUrl = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/logout"
+
+    if ($Interactive) {
+        $session = [PSCustomObject]@{
+            Url                   = $endpointUrl
+            TokenUrl              = $tokenUrl
+            LogoutUrl             = $logoutUrl
+            ClientId              = 'kelvin-client'
+            Username              = $null
+            Password              = $null
+            AccessToken           = $null
+            AccessTokenExpiresAt  = [DateTime]::MinValue
+            RefreshToken          = $null
+            RefreshTokenExpiresAt = [DateTime]::MinValue
+            RefreshWindow         = $RefreshWindow
+            AuthenticationMode    = 'Interactive'
+        }
+
+        if ($script:KelvinSession) {
+            Write-Verbose "An existing session for '$($script:KelvinSession.Username)' at $($script:KelvinSession.Url) will be replaced on successful authentication."
+        }
+
+        try {
+            _InvokeKelvinOAuthLogin -BaseUrl $baseUrl -Session $session -Timeout $Timeout
+        }
+        catch {
+            Write-Error "Interactive OAuth authentication failed: $_"
+            return
+        }
+
+        $script:KelvinSession = $session
+        Write-Verbose "OAuth session stored. API base URL: $endpointUrl"
+        return
+    }
+
     # Extract username and password from the PSCredential object, if present.
     # Otherwise, use KELVIN_USERNAME and KELVIN_PASSWORD environment variables.
     if ($Credentials) {
@@ -90,8 +155,8 @@ function Connect-KelvinAccount {
 
     $session = [PSCustomObject]@{
         Url                   = $endpointUrl
-        TokenUrl              = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/token"
-        LogoutUrl             = "$baseUrl/auth/realms/kelvin/protocol/openid-connect/logout"
+        TokenUrl              = $tokenUrl
+        LogoutUrl             = $logoutUrl
         ClientId              = 'kelvin-client'
         Username              = $Username
         Password              = $Password
@@ -100,6 +165,7 @@ function Connect-KelvinAccount {
         RefreshToken          = $null
         RefreshTokenExpiresAt = [DateTime]::MinValue
         RefreshWindow         = $RefreshWindow
+        AuthenticationMode    = 'Credentials'
     }
 
     if ($script:KelvinSession) {

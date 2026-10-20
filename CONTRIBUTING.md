@@ -26,6 +26,12 @@ Thank you for your interest in contributing to PoshKelvin!
    Import-Module $manifest.FullName -Force
    ```
 
+6. Run the tests:
+
+   ```powershell
+   ./build.ps1 -Task Test
+   ```
+
 ## Coding Conventions
 
 Please follow the conventions described in [AGENTS.md](AGENTS.md):

@@ -7,10 +7,23 @@ function _RequestToken {
 
         # Uses the refresh token grant instead of the password grant.
         [Parameter()]
-        [switch] $UseRefreshToken
+        [switch] $UseRefreshToken,
+
+        [Parameter()]
+        [string] $AuthorizationCode,
+
+        [Parameter()]
+        [string] $RedirectUri,
+
+        [Parameter()]
+        [string] $CodeVerifier,
+
+        [Parameter()]
+        [ValidateRange(0, 86400)]
+        [int] $TimeoutSeconds = 0
     )
 
-    $grantType = if ($UseRefreshToken) { 'refresh_token' } else { 'password' }
+    $grantType = if ($UseRefreshToken) { 'refresh_token' } elseif ($AuthorizationCode) { 'authorization_code' } else { 'password' }
     Write-Verbose "Requesting token from $($Session.TokenUrl) (grant type: '$grantType', client: '$($Session.ClientId)', user: '$($Session.Username)')"
 
     if ($UseRefreshToken) {
@@ -18,6 +31,15 @@ function _RequestToken {
             grant_type    = 'refresh_token'
             client_id     = $Session.ClientId
             refresh_token = $Session.RefreshToken
+        }
+    }
+    elseif ($AuthorizationCode) {
+        $body = @{
+            grant_type    = 'authorization_code'
+            client_id     = $Session.ClientId
+            code          = $AuthorizationCode
+            redirect_uri  = $RedirectUri
+            code_verifier = $CodeVerifier
         }
     }
     else {
@@ -32,13 +54,22 @@ function _RequestToken {
     # Captured before the request so that network latency never extends the computed token lifetime
     $requestedAt = [DateTime]::UtcNow
 
-    $response = Invoke-RestMethod -Uri $Session.TokenUrl -Method Post -Body $body -ErrorAction Stop
+    $response = Invoke-RestMethod -Uri $Session.TokenUrl -Method Post -Body $body -ContentType 'application/x-www-form-urlencoded' -TimeoutSec $TimeoutSeconds -ErrorAction Stop
 
     Write-Verbose "Token request completed in $([int]([DateTime]::UtcNow - $requestedAt).TotalMilliseconds) ms"
 
     if (-not $response -or -not $response.access_token) {
         Write-Verbose 'Token response did not contain an access token.'
         throw 'Authentication failed. No token received.'
+    }
+
+    if ($AuthorizationCode) {
+        if ($response.access_token -isnot [string] -or [string]::IsNullOrWhiteSpace($response.access_token)) {
+            throw 'Authentication failed. The authorization-code response did not contain a valid access token.'
+        }
+        if ([int] $response.expires_in -le 0) {
+            throw 'Authentication failed. The authorization-code response did not contain a positive access token lifetime.'
+        }
     }
 
     $Session.AccessToken = $response.access_token
@@ -48,7 +79,12 @@ function _RequestToken {
         $Session.RefreshToken = $response.refresh_token
 
         # Keycloak reports refresh_expires_in = 0 for refresh tokens without an expiration (e.g. offline tokens)
-        $Session.RefreshTokenExpiresAt = if ([int] $response.refresh_expires_in -gt 0) {
+        $Session.RefreshTokenExpiresAt = if ($AuthorizationCode -and
+            ($null -eq $response.refresh_expires_in -or [int] $response.refresh_expires_in -lt 0)) {
+            Write-Verbose 'The refresh token lifetime is unknown. Reconnect interactively when the access token expires.'
+            [DateTime]::MinValue
+        }
+        elseif ([int] $response.refresh_expires_in -gt 0) {
             $requestedAt.AddSeconds([int] $response.refresh_expires_in)
         }
         else {

@@ -195,6 +195,17 @@ Describe 'Native OAuth authentication' {
         Should -Invoke Start-Process -ModuleName PoshKelvin -Times 0 -Exactly
     }
 
+    It 'Prints the sign-in URL before opening the browser even when the launch succeeds' {
+        $script:events = [Collections.Generic.List[string]]::new()
+        Mock Start-Process { $script:events.Add("launch:$FilePath") } -ModuleName PoshKelvin
+        Mock Write-Host { if ($Object -like 'https://*') { $script:events.Add("print:$Object") } } -ModuleName PoshKelvin
+        { Connect-KelvinAccount 'https://kelvin.example.com' -Interactive -Timeout 1 -ErrorAction Stop } |
+            Should -Throw '*Timed out after 1 seconds*'
+        $script:events.Count | Should -Be 2
+        $script:events[0] | Should -BeLike 'print:https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/auth?client_id=kelvin-client&*'
+        $script:events[1] | Should -Be ('launch:' + $script:events[0].Substring(6))
+    }
+
     It 'Prints the sign-in URL when the default browser cannot be opened' {
         Mock Start-Process { throw 'No default browser' } -ModuleName PoshKelvin
         Mock Write-Host { if ($Object -like 'https://*') { $script:printedUrl = $Object } } -ModuleName PoshKelvin

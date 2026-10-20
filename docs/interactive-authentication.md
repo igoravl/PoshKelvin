@@ -23,10 +23,10 @@ is needed.
 Connect-KelvinAccount https://<my-instance>.kelvin.ai/ -Interactive
 ```
 
-1. PoshKelvin starts a listener on `http://localhost:38638/`, then opens your
-   default browser on the Keycloak authorization endpoint. If the browser
-   cannot be opened, PoshKelvin prints the sign-in URL so you can open it
-   yourself.
+1. PoshKelvin starts a listener on `http://localhost:38638/`, prints the sign-in
+   URL, and opens your default browser on the Keycloak authorization endpoint.
+   If no browser appears (common on WSL and minimal Linux setups), copy the
+   printed URL into a browser on the same machine.
 1. Sign in through the identity provider as usual. Your existing browser SSO
    session can be reused.
 1. Keycloak redirects to the local listener. PoshKelvin validates a random state
@@ -93,8 +93,9 @@ the local session.
   may be using the port. Close that login or ask the administrator to register
   another redirect. On Windows, HTTP listener URL reservations may also require
   administrator configuration; do not run a privileged shell just to sign in.
-- **"Unable to open the default browser"**: open the printed sign-in URL in a
-  browser on the same machine; PoshKelvin keeps waiting for the callback.
+- **"Unable to open the default browser"**, or no browser window appears: open
+  the printed sign-in URL in a browser on the same machine; PoshKelvin keeps
+  waiting for the callback.
 - **WSL, SSH or remote shells**: the default browser must be reachable and its
   `localhost` callback must reach this PowerShell process. Check WSL localhost
   forwarding if the browser runs on Windows. A remote browser's loopback address

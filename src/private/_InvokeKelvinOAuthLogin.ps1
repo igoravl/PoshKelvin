@@ -62,11 +62,13 @@ function _InvokeKelvinOAuthLogin {
         }
 
         $clock = [Diagnostics.Stopwatch]::StartNew()
-        Write-Host "Complete the sign-in in your default browser. Waiting up to $Timeout seconds..."
+        # Always show the URL: on WSL/Linux the launcher may report success without opening a browser.
+        Write-Host 'Opening your default browser to sign in. If it does not open, visit this URL:'
+        Write-Host $authorizeUrl
+        Write-Host "Waiting up to $Timeout seconds..."
         try { Start-Process -FilePath $authorizeUrl -ErrorAction Stop | Out-Null }
         catch {
-            Write-Warning 'Unable to open the default browser. Open this URL manually to sign in:'
-            Write-Host $authorizeUrl
+            Write-Warning 'Unable to open the default browser. Open the URL above manually to sign in.'
         }
 
         $pending = $listener.GetContextAsync()

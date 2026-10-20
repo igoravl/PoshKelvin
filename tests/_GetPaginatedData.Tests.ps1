@@ -156,12 +156,20 @@ Describe 'Pagination modes and request continuity' {
 
     It 'Stops when limits metadata does not match the requested page' {
         Mock Invoke-RestMethod {
-            [PSCustomObject]@{ data = @(); pagination = [PSCustomObject]@{ page = 1; total_pages = 3 } }
+            [PSCustomObject]@{
+                data = @([PSCustomObject]@{ id = 1 })
+                pagination = [PSCustomObject]@{ page = 1; total_pages = 3 }
+            }
         } -ModuleName PoshKelvin
 
-        { & (Get-Module PoshKelvin) {
-            _GetPaginatedData -Uri 'https://kelvin.example.com/list?pagination_type=limits&page=2' -Method GET -ErrorAction Stop
-        } } | Should -Throw '*does not match*'
+        $results = [System.Collections.Generic.List[object]]::new()
+        {
+            & (Get-Module PoshKelvin) {
+                _GetPaginatedData -Uri 'https://kelvin.example.com/list?pagination_type=limits&page=2' `
+                    -Method GET -ErrorAction Stop
+            } | ForEach-Object { $results.Add($_) }
+        } | Should -Throw '*does not match*'
+        $results.Count | Should -Be 0
     }
 
     It 'Handles empty limits results without another request' {

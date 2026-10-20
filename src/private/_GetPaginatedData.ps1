@@ -71,6 +71,31 @@ function _GetPaginatedData {
             if ($paginated) {
                 Write-Verbose ($response.pagination | ConvertTo-Json -Compress)
                 $items = $response.data
+                $pagination = $response.pagination
+                if ($null -eq $pagination) {
+                    throw 'The response contains null pagination metadata.'
+                }
+
+                if ($pagination.PSObject.Properties.Name -contains 'next_page' -or
+                    $pagination.PSObject.Properties.Name -contains 'previous_page' -or
+                    @($pagination.PSObject.Properties).Count -eq 0) {
+                    $paginationMode = 'cursor'
+                }
+                elseif ($pagination.PSObject.Properties.Name -contains 'total_pages') {
+                    $paginationMode = 'limits'
+                    $page = 0
+                    $totalPages = 0
+                    if (-not [int]::TryParse([string] $pagination.page, [ref] $page) -or $page -lt 1 -or
+                        -not [int]::TryParse([string] $pagination.total_pages, [ref] $totalPages) -or $totalPages -lt 0) {
+                        throw 'The response contains invalid limits pagination metadata.'
+                    }
+                    if ($query['page'] -and $page -ne [int] $query['page']) {
+                        throw 'The response page does not match the requested page.'
+                    }
+                }
+                else {
+                    throw 'The response contains unsupported pagination metadata.'
+                }
             }
             else {
                 $items = $response
@@ -89,14 +114,7 @@ function _GetPaginatedData {
                 return
             }
 
-            $pagination = $response.pagination
-            if ($null -eq $pagination) {
-                throw 'The response contains null pagination metadata.'
-            }
-
-            if ($pagination.PSObject.Properties.Name -contains 'next_page' -or
-                $pagination.PSObject.Properties.Name -contains 'previous_page' -or
-                @($pagination.PSObject.Properties).Count -eq 0) {
+            if ($paginationMode -eq 'cursor') {
                 if (-not $pagination.next_page) {
                     return
                 }
@@ -104,16 +122,7 @@ function _GetPaginatedData {
                 $query.Remove('previous')
                 $query['next'] = $pagination.next_page
             }
-            elseif ($pagination.PSObject.Properties.Name -contains 'total_pages') {
-                $page = 0
-                $totalPages = 0
-                if (-not [int]::TryParse([string] $pagination.page, [ref] $page) -or $page -lt 1 -or
-                    -not [int]::TryParse([string] $pagination.total_pages, [ref] $totalPages) -or $totalPages -lt 0) {
-                    throw 'The response contains invalid limits pagination metadata.'
-                }
-                if ($query['page'] -and $page -ne [int] $query['page']) {
-                    throw 'The response page does not match the requested page.'
-                }
+            else {
                 if ($page -ge $totalPages) {
                     return
                 }
@@ -122,10 +131,6 @@ function _GetPaginatedData {
                 $query['pagination_type'] = 'limits'
                 $query['page'] = [string] ($page + 1)
             }
-            else {
-                throw 'The response contains unsupported pagination metadata.'
-            }
-
             $builder.Query = $query.ToString()
             $currentUri = $builder.Uri
         }

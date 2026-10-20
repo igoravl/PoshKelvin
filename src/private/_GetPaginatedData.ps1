@@ -24,6 +24,7 @@ function _GetPaginatedData {
     )
 
     $builder = [UriBuilder] $Uri
+    Add-Type -AssemblyName System.Web
     $query = [System.Web.HttpUtility]::ParseQueryString($builder.Query)
     $streaming = $query['pagination_type'] -eq 'stream' -or $Headers.Accept -eq 'application/x-json-stream'
 

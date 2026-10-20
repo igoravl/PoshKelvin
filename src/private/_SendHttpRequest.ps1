@@ -20,7 +20,7 @@ function _SendHttpRequest {
         [string] $ContentType
     )
 
-    $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::new($Method), $Uri)
+    $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::new($Method.ToUpperInvariant()), $Uri)
     $response = $null
     try {
         foreach ($key in $Headers.Keys) {

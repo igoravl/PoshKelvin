@@ -48,7 +48,12 @@ function Disconnect-KelvinAccount {
             Write-Verbose 'Server-side session ended. The refresh token has been revoked.'
         }
         catch {
-            Write-Warning "Failed to end the server-side Kelvin session: $_. The local session will be cleared anyway."
+            $script:KelvinSession = $null
+            if ($session.Password -is [securestring]) {
+                $session.Password.Dispose()
+            }
+            Write-Warning "Failed to end the server-side Kelvin session: $_. The local session has been cleared."
+            return
         }
     }
     else {

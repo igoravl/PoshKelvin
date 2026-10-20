@@ -1,16 +1,25 @@
 # Shared helpers and fixtures for PoshKelvin unit tests.
 # This file is dot-sourced (not imported as a module) by each test file.
 
-$script:ModulePath  = "$PSScriptRoot/../output/PoshKelvin"
-$script:KelvinUrl   = 'https://kelvin.example.com/api/v4'
-$script:KelvinToken = 'test-bearer-token'
+$script:ModulePath = "$PSScriptRoot/../output/PoshKelvin"
 
-# Sets the private script-scoped connection variables inside the loaded module so
+# Sets the private script-scoped session object inside the loaded module so
 # that cmdlets that require a prior Connect-KelvinAccount call will succeed.
 function Set-KelvinTestConnection {
     & (Get-Module PoshKelvin) {
-        $script:KelvinURL   = 'https://kelvin.example.com/api/v4'
-        $script:KelvinToken = 'test-bearer-token'
+        $script:KelvinSession = [PSCustomObject]@{
+            Url                   = 'https://kelvin.example.com/api/v4'
+            TokenUrl              = 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/token'
+            LogoutUrl             = 'https://kelvin.example.com/auth/realms/kelvin/protocol/openid-connect/logout'
+            ClientId              = 'kelvin-client'
+            Username              = 'test-user'
+            Password              = ConvertTo-SecureString 'test-password' -AsPlainText -Force
+            AccessToken           = 'test-bearer-token'
+            AccessTokenExpiresAt  = [DateTime]::UtcNow.AddHours(1)
+            RefreshToken          = 'test-refresh-token'
+            RefreshTokenExpiresAt = [DateTime]::UtcNow.AddHours(2)
+            RefreshWindow         = 120
+        }
     }
 }
 

@@ -1,84 +1,147 @@
-﻿function _GetPaginatedData {
+function _GetPaginatedData {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [uri]$Uri,
-        
+        [uri] $Uri,
+
         [Parameter(Mandatory)]
-        [string]$Method,
+        [string] $Method,
 
         [Parameter()]
-        [object]$Body,
+        [object] $Body,
 
         [Parameter()]
-        [string]$ContentType,
+        [string] $ContentType,
 
         [Parameter()]
-        [hashtable]$Headers,
+        [hashtable] $Headers = @{},
 
         [Parameter()]
-        $TypeName
+        [string] $TypeName,
+
+        [Parameter()]
+        [switch] $RefreshToken
     )
 
+    $builder = [UriBuilder] $Uri
+    Add-Type -AssemblyName System.Web
+    $query = [System.Web.HttpUtility]::ParseQueryString($builder.Query)
+    $streaming = $query['pagination_type'] -eq 'stream' -or $Headers.Accept -eq 'application/x-json-stream'
+
+    $requestHeaders = $Headers.Clone()
+
+    if ($streaming) {
+        $query['pagination_type'] = 'stream'
+        $builder.Query = $query.ToString()
+        $Uri = $builder.Uri
+        $requestHeaders.Accept = 'application/x-json-stream'
+    }
+
     $currentUri = $Uri
-    $pageCount = 1
-    
+    $pageCount = 0
+    $visited = [System.Collections.Generic.HashSet[string]]::new()
+
     do {
         try {
-            Write-Verbose "Requesting data from $currentUri"
-            
-            $response = Invoke-RestMethod -Uri $currentUri -Method $Method -Body $Body `
-                -ContentType $ContentType -Headers $Headers -ErrorAction Stop
+            if (-not $visited.Add($currentUri.AbsoluteUri)) {
+                throw 'Pagination returned a previously requested page. Stopping to avoid an infinite loop.'
+            }
 
-            if ($response.PSObject.Properties.Name -contains 'pagination') {
-                Write-Verbose "Pagination detected. Processing page $pageCount"
-                Write-Verbose $response.pagination | ConvertTo-Json -Compress
+            $pageCount++
+            if ($RefreshToken) {
+                $requestHeaders.Authorization = "Bearer $(_GetToken)"
+            }
+            Write-Verbose "Requesting page $pageCount using $Method $currentUri"
 
-                try {
-                    $response.data | ForEach-Object {
-                        $item = $_
-                        if ($TypeName) {
-                            $_.PSObject.TypeNames.Insert(0, $TypeName)
-                        }
-                        Write-Output $item
-                    }
+            if ($streaming) {
+                Write-Verbose 'Reading newline-delimited JSON stream.'
+                _GetStreamedData -Uri $currentUri -Method $Method -Body $Body `
+                    -ContentType $ContentType -Headers $requestHeaders -TypeName $TypeName `
+                    -RefreshToken:$RefreshToken -ErrorAction Stop
+                return
+            }
+
+            $response = _InvokeAuthenticatedRequest -Headers $requestHeaders -RefreshToken:$RefreshToken -Request {
+                param ($headers)
+                Invoke-RestMethod -Uri $currentUri -Method $Method -Body $Body `
+                    -ContentType $ContentType -Headers $headers -ErrorAction Stop
+            }
+
+            $paginated = $null -ne $response -and $response.PSObject.Properties.Name -contains 'pagination'
+            if ($paginated) {
+                Write-Verbose ($response.pagination | ConvertTo-Json -Compress)
+                $items = $response.data
+                $pagination = $response.pagination
+                if ($null -eq $pagination) {
+                    throw 'The response contains null pagination metadata.'
                 }
-                catch {
-                    Write-Error "Failed to process page $pageCount data: $($_.Exception.Message)"
-                    return
+
+                if ($pagination.PSObject.Properties.Name -contains 'next_page' -or
+                    $pagination.PSObject.Properties.Name -contains 'previous_page' -or
+                    @($pagination.PSObject.Properties).Count -eq 0) {
+                    $paginationMode = 'cursor'
                 }
-                
-                if ($response.pagination.next_page) {
-                    try {
-                        Add-Type -AssemblyName System.Web
-                        $builder = [UriBuilder]$Uri
-                        $query = [System.Web.HttpUtility]::ParseQueryString($builder.Query)
-                        $query['next'] = $response.pagination.next_page
-                        $query['previous'] = $response.pagination.previous_page
-                        $builder.Query = $query.ToString()
-                        $currentUri = $builder.Uri
-                        $pageCount++
+                elseif ($pagination.PSObject.Properties.Name -contains 'total_pages') {
+                    $paginationMode = 'limits'
+                    $page = 0
+                    $totalPages = 0
+                    if (-not [int]::TryParse([string] $pagination.page, [ref] $page) -or $page -lt 1 -or
+                        -not [int]::TryParse([string] $pagination.total_pages, [ref] $totalPages) -or $totalPages -lt 0) {
+                        throw 'The response contains invalid limits pagination metadata.'
                     }
-                    catch {
-                        Write-Error "Failed to build pagination URL: $($_.Exception.Message)"
-                        return
+                    if ($query['page'] -and $page -ne [int] $query['page']) {
+                        throw 'The response page does not match the requested page.'
                     }
                 }
                 else {
-                    $currentUri = $null
+                    throw 'The response contains unsupported pagination metadata.'
                 }
             }
             else {
-                Write-Output $response
-                $currentUri = $null
+                $items = $response
             }
-        }
-        catch [System.Net.WebException] {
-            Write-Error "HTTP request failed on page $pageCount`: $_"
-            return
+
+            foreach ($item in $items) {
+                if ($null -ne $item) {
+                    if ($TypeName) {
+                        $item.PSObject.TypeNames.Insert(0, $TypeName)
+                    }
+                    Write-Output $item
+                }
+            }
+
+            if (-not $paginated) {
+                return
+            }
+
+            if ($paginationMode -eq 'cursor') {
+                if (-not $pagination.next_page) {
+                    return
+                }
+                # Forward navigation must never send a backward cursor.
+                $query.Remove('previous')
+                $query['next'] = $pagination.next_page
+            }
+            else {
+                if ($page -ge $totalPages) {
+                    return
+                }
+                $query.Remove('next')
+                $query.Remove('previous')
+                $query['pagination_type'] = 'limits'
+                $query['page'] = [string] ($page + 1)
+            }
+            $builder.Query = $query.ToString()
+            $currentUri = $builder.Uri
         }
         catch {
-            Write-Error "Unexpected error on page $pageCount`: $_"
+            $details = $_.Exception.Message
+            if ($_.ErrorDetails.Message) {
+                $details = "$details $($_.ErrorDetails.Message)"
+            }
+            $_.ErrorDetails = [System.Management.Automation.ErrorDetails]::new(
+                "Request failed on page $pageCount ($Method $currentUri): $details")
+            $PSCmdlet.WriteError($_)
             return
         }
     } while ($currentUri)

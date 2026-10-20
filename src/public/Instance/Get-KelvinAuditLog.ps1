@@ -5,11 +5,18 @@
 .DESCRIPTION
     Retrieves audit logs from the currently connected Kelvin instance.
     Supports filtering by user, action, resource, and time range.
+    Lists use parsed streaming by default. Use PaginationMode to select cursor
+    or limits pagination instead. Detailed lookups remain separate requests.
 
 .EXAMPLE
     PS> Get-KelvinAuditLog
 
     Lists all audit log entries.
+
+.EXAMPLE
+    PS> Get-KelvinAuditLog -PaginationMode Cursor
+
+    Lists audit log entries using cursor pagination instead of streaming.
 
 .EXAMPLE
     PS> Get-KelvinAuditLog -User admin -StartTime (Get-Date).AddDays(-7)
@@ -50,6 +57,11 @@ Function Get-KelvinAuditLog {
         [Parameter()]
         [DateTime] $EndTime,
 
+        # Select list pagination. Stream emits parsed objects as they arrive.
+        [Parameter()]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode = 'Stream',
+
         # Return detailed information for each entry.
         [Parameter()]
         [switch] $Detailed
@@ -67,7 +79,7 @@ Function Get-KelvinAuditLog {
             $params['end_time'] = $EndTime.ToString('o')
         }
 
-        Invoke-KelvinApi 'instance/auditlog/list' -Method Get -TypeName 'Kelvin.AuditLog' -Parameters $params `
+        Invoke-KelvinApi 'instance/auditlog/list' -Method Get -TypeName 'Kelvin.AuditLog' -Parameters $params -PaginationMode $PaginationMode `
         | ForEach-Object {
             if ($Detailed.IsPresent) {
                 $ret = (Invoke-KelvinApi "instance/auditlog/$($_.id)/get" -Method Get -TypeName 'Kelvin.AuditLog')

@@ -5,7 +5,16 @@
 .DESCRIPTION
     Sends a request to a Kelvin API endpoint. Handles authentication, pagination,
     JSON serialization, and query-string building. Requires a prior call to
-    Connect-KelvinAccount.
+    Connect-KelvinAccount. Cursor and limits pagination are followed automatically.
+    Use PaginationMode to select Cursor, Limits, or Stream for parsed results.
+    When specified, it overrides pagination_type and Accept without modifying the
+    caller's parameter hashtable. Otherwise, existing query and header settings
+    are preserved (cursor pagination by default). With Stream, newline-delimited
+    JSON records are emitted as objects as they arrive.
+    Authentication is checked before each page request.
+    A request rejected with HTTP 401 is retried once after renewing the token.
+    Other errors are not retried. Streams are never replayed after records have
+    been emitted.
 
 .EXAMPLE
     PS> Invoke-KelvinApi 'workloads/list'
@@ -21,9 +30,19 @@
     PS> Invoke-KelvinApi 'workloads/my-app/download' -Accept 'application/zip' -AsStream
 
     Returns the raw response stream for binary content.
+
+.EXAMPLE
+    PS> Invoke-KelvinApi 'assets/list' -Method POST -Body @{} -PaginationMode Limits -Parameters @{ page_size = 100 }
+
+    Returns assets from every page, preserving the POST body on each request.
+
+.EXAMPLE
+    PS> Invoke-KelvinApi 'assets/list' -PaginationMode Stream
+
+    Parses streamed JSON records into objects. Use -AsStream only for a raw stream.
 #>
 function Invoke-KelvinApi {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Parsed')]
     param (
         # The API path relative to the base Kelvin URL (e.g. 'workloads/list').
         [Parameter(Mandatory = $true, Position = 0)]
@@ -55,16 +74,19 @@ function Invoke-KelvinApi {
         [Parameter()]
         [string] $TypeName,
 
+        # Select parsed-result pagination, overriding pagination_type and Accept. Cannot be combined with AsStream.
+        [Parameter(ParameterSetName = 'Parsed')]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode,
+
         # When specified, returns the raw response stream instead of parsed objects.
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Raw')]
         [switch]$AsStream
     )
 
-    if (-not $script:KelvinURL -or -not $script:KelvinToken) {
-        throw 'Connect-KelvinAccount must be called before invoking any API commands.'
-    }
+    $token = _GetToken
 
-    $url = "$script:KelvinURL/$Path"
+    $url = "$($script:KelvinSession.Url)/$Path"
     Write-Verbose "Invoking API at $url"
 
     if ($Body -is [string] -or $Body -is [int] -or $Body -is [double]) {
@@ -72,6 +94,22 @@ function Invoke-KelvinApi {
     }
     elseif ($null -ne $Body) {
         $requestBody = $Body | ConvertTo-Json -Depth 10
+    }
+
+    if ($PSBoundParameters.ContainsKey('PaginationMode')) {
+        if ($null -eq $Parameters) {
+            $Parameters = @{}
+        }
+        else {
+            $Parameters = $Parameters.Clone()
+        }
+        $Parameters['pagination_type'] = $PaginationMode.ToLowerInvariant()
+        $Accept = switch ($PaginationMode) {
+            'Cursor' { 'application/json-cursor' }
+            'Limits' { 'application/x-json-limits' }
+            'Stream' { 'application/x-json-stream' }
+        }
+        Write-Verbose "Using parsed-result pagination mode '$PaginationMode' (Accept: $Accept), overriding pagination_type and Accept."
     }
 
     if ($Parameters.Count -gt 0) {
@@ -87,20 +125,21 @@ function Invoke-KelvinApi {
         
         Add-Type -AssemblyName System.Net.Http
         $client = New-Object System.Net.Http.HttpClient
-        $client.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:KelvinToken)
         $client.DefaultRequestHeaders.Accept.Add((New-Object System.Net.Http.Headers.MediaTypeWithQualityHeaderValue($Accept)))
         $client.DefaultRequestHeaders.Add('User-Agent', 'PoshKelvin/1.0')
-        
-        $request = New-Object System.Net.Http.HttpRequestMessage -ArgumentList $Method, $url
-        $request.Content = $(if ($requestBody) { New-Object System.Net.Http.StringContent($requestBody, [System.Text.Encoding]::UTF8, $BodyContentType) })
-
-        $response = $client.SendAsync($request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
-        
-        if ($response.IsSuccessStatusCode) {
-            return $response.Content.ReadAsStreamAsync().Result
+        $response = $null
+        try {
+            $response = _InvokeAuthenticatedRequest -Headers @{ Authorization = "Bearer $token" } -RefreshToken -Request {
+                param ($headers)
+                _SendHttpRequest -Client $client -Uri $url -Method $Method `
+                    -Headers $headers -Body $requestBody -ContentType $BodyContentType
+            }
+            return $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
         }
-        else {
-            throw "Failed to invoke API: $($response.ReasonPhrase) - $($response.Content.ReadAsStringAsync().Result)"
+        catch {
+            if ($response) { $response.Dispose() }
+            $client.Dispose()
+            throw
         }
     }
 
@@ -108,7 +147,8 @@ function Invoke-KelvinApi {
         -Method $Method `
         -Body $requestBody `
         -ContentType $BodyContentType `
-        -Headers @{ Authorization = "Bearer $script:KelvinToken" } `
+        -Headers @{ Authorization = "Bearer $token"; Accept = $Accept } `
+        -RefreshToken `
         -TypeName $TypeName
 }
 

@@ -4,12 +4,14 @@
 
 .DESCRIPTION
     Retrieves data stream units from the currently connected Kelvin instance.
+    Use PaginationMode to select cursor, limits, or streamed parsed results.
 
 .EXAMPLE
     PS> Get-KelvinDataStreamUnit
 
     Lists all data stream units.
 
+.EXAMPLE
 .EXAMPLE
     PS> Get-KelvinDataStreamUnit -Name celsius -Detailed
 
@@ -29,6 +31,11 @@ Function Get-KelvinDataStreamUnit {
         [Alias('unit_name')]
         [string[]] $Name,
 
+        # Select list pagination. Stream emits parsed objects as they arrive.
+        [Parameter()]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode = 'Cursor',
+
         # Return detailed information for each unit.
         [Parameter()]
         [switch] $Detailed
@@ -37,7 +44,7 @@ Function Get-KelvinDataStreamUnit {
     Process {
         $params = _GetParams
 
-        Invoke-KelvinApi 'datastreams/units/list' -Method Get -TypeName 'Kelvin.DataStreamUnit' -Parameters $params `
+        Invoke-KelvinApi 'datastreams/units/list' -Method Get -TypeName 'Kelvin.DataStreamUnit' -Parameters $params -PaginationMode $PaginationMode `
         | ForEach-Object {
             if ($Detailed.IsPresent) {
                 $ret = (Invoke-KelvinApi "datastreams/units/$($_.name)/get" -Method Get -TypeName 'Kelvin.DataStreamUnit')

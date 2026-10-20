@@ -5,11 +5,18 @@
 .DESCRIPTION
     Retrieves a list of workloads from the currently connected Kelvin instance.
     Supports filtering by name, application, cluster, node, status, and more.
+    Lists use parsed streaming by default. Use PaginationMode to select cursor
+    or limits pagination instead. Detailed lookups remain separate requests.
 
 .EXAMPLE
     PS> Get-KelvinWorkload
 
     Lists all workloads.
+
+.EXAMPLE
+    PS> Get-KelvinWorkload -PaginationMode Cursor
+
+    Lists workloads using cursor pagination instead of streaming.
 
 .EXAMPLE
     PS> Get-KelvinWorkload -ClusterName my-cluster
@@ -85,6 +92,11 @@ Function Get-KelvinWorkload {
         [Alias('download_status')]
         [string[]] $DownloadStatus,
 
+        # Select list pagination. Stream emits parsed objects as they arrive.
+        [Parameter()]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode = 'Stream',
+
         # Return detailed workload information by making an additional API call for each workload
         [Parameter()]
         [switch] $Detailed
@@ -94,7 +106,7 @@ Function Get-KelvinWorkload {
         $params = _GetParams
 
         # Call the Kelvin API to list workloads
-        Invoke-KelvinApi 'workloads/list' -Method Get -TypeName 'Kelvin.Workload' -Parameters $params `
+        Invoke-KelvinApi 'workloads/list' -Method Get -TypeName 'Kelvin.Workload' -Parameters $params -PaginationMode $PaginationMode `
         | ForEach-Object {
             if ($Detailed.IsPresent) {
                 $ret = (Invoke-KelvinApi "workloads/$($_.name)/get" -Method Get -TypeName 'Kelvin.Workload')

@@ -5,11 +5,18 @@
 .DESCRIPTION
     Retrieves application information from the currently connected Kelvin instance
     App Registry.
+    Lists use parsed streaming by default. Use PaginationMode to select cursor
+    or limits pagination instead. Detailed lookups remain separate requests.
 
 .EXAMPLE
     PS> Get-KelvinApp
 
     Lists all registered applications.
+
+.EXAMPLE
+    PS> Get-KelvinApp -PaginationMode Cursor
+
+    Lists applications using cursor pagination instead of streaming.
 
 .EXAMPLE
     PS> Get-KelvinApp -Name my-app -Detailed
@@ -34,6 +41,11 @@ Function Get-KelvinApp {
         [Parameter(ParameterSetName = 'Query')]
         [string[]] $Type,
 
+        # Select list pagination. Stream emits parsed objects as they arrive.
+        [Parameter()]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode = 'Stream',
+
         # Return detailed information for each application.
         [Parameter()]
         [switch] $Detailed
@@ -42,7 +54,7 @@ Function Get-KelvinApp {
     Process {
         $params = _GetParams
 
-        Invoke-KelvinApi 'appregistry/list' -Method Get -TypeName 'Kelvin.App' -Parameters $params `
+        Invoke-KelvinApi 'appregistry/list' -Method Get -TypeName 'Kelvin.App' -Parameters $params -PaginationMode $PaginationMode `
         | ForEach-Object {
             if ($Detailed.IsPresent) {
                 $ret = (Invoke-KelvinApi "appregistry/$($_.name)/get" -Method Get -TypeName 'Kelvin.App')

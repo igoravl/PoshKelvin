@@ -18,7 +18,7 @@ function Set-KelvinTestConnection {
             AccessTokenExpiresAt  = [DateTime]::UtcNow.AddHours(1)
             RefreshToken          = 'test-refresh-token'
             RefreshTokenExpiresAt = [DateTime]::UtcNow.AddHours(2)
-            RefreshWindow         = 300
+            RefreshWindow         = 120
         }
     }
 }

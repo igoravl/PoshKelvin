@@ -7,22 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-19
+
 ### Added
 
+- `-PaginationMode Cursor|Limits|Stream` on `Invoke-KelvinApi` to select parsed-result pagination independently of raw `-AsStream` downloads, preserving existing defaults when omitted.
+- Limits pagination and incremental newline-delimited JSON stream parsing in `Invoke-KelvinApi`, for both GET and POST list requests.
 - `Update-KelvinToken` for immediate, on-demand token refresh, with `-Force` for re-authentication, verbose diagnostics, and a status object containing UTC expiration dates. Normal API calls still renew tokens automatically.
 - Automatic access token renewal. Tokens are refreshed using the refresh token when they are about to expire, falling back to re-authentication with the cached credentials when the refresh token is no longer valid.
-- `-RefreshWindow` parameter on `Connect-KelvinAccount` to control how many seconds before expiration a token is renewed (default: 300).
+- `-RefreshWindow` parameter on `Connect-KelvinAccount` to control how many seconds before expiration a token is renewed (default: 120, or two minutes).
 - `Disconnect-KelvinAccount` — End the server-side session (revoking the refresh token) and clear the local session, discarding the cached credentials and tokens.
 
 ### Changed
 
+- Audit log, workload, application, asset, cluster, and secret list cmdlets now default to parsed streaming, with `-PaginationMode Cursor|Limits|Stream` to override. Detail requests and other cmdlet defaults are unchanged.
 - Connection state is now kept in a single module-scoped session object. The password is stored as a `SecureString` and is only converted to plain text when building an authentication request.
 - Simplified the handling of non-paginated responses in `_GetPaginatedData`. No functional changes.
 
 ### Fixed
 
-- `Connect-KelvinAccount` no longer writes the raw token response to the verbose stream.
 - `Connect-KelvinAccount` now resolves the authentication endpoint correctly when the URL already includes an API version (for example, `https://host/api/v4`).
+- Forward cursor requests no longer send a backward cursor. Pagination preserves filters and request bodies, checks authentication before each page, detects repeated pages, and retains HTTP error details.
+- Corrected JSON formatting of pagination verbose output and applied requested type names to streamed and non-paginated results.
+- HTTP 401 responses trigger token renewal and one retry of the rejected request, including paginated requests, JSON streams, and raw downloads. Other errors and already-started streams are not retried.
 
 ## [0.4.1] - 2026-03-17
 

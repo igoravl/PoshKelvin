@@ -50,7 +50,10 @@ Install-Module PoshKelvin -Scope CurrentUser
 ## Token renewal
 
 API commands automatically renew tokens when needed after `Connect-KelvinAccount`;
-manual renewal is not required. To test renewal or renew tokens early:
+manual renewal is not required. The default refresh window is 120 seconds
+(two minutes); override it with `Connect-KelvinAccount -RefreshWindow`.
+Token lifetimes are taken from the authentication response, not hardcoded.
+To test renewal or renew tokens early:
 
 ```powershell
 Update-KelvinToken -Verbose
@@ -67,6 +70,32 @@ Both commands return `Status` (`Refreshed` or `Reauthenticated`),
 or credentials. Failed operations raise an error and return no status object.
 Normal refresh does not fall back to re-authentication; use `-Force` if the
 refresh token is unavailable or rejected.
+
+## Streaming list defaults
+
+`Get-KelvinAuditLog`, `Get-KelvinWorkload`, `Get-KelvinApp`,
+`Get-KelvinAsset`, `Get-KelvinCluster`, and `Get-KelvinSecret` use parsed
+streaming by default to avoid repeated page requests for large collections.
+Their output objects and detail lookups are unchanged. Select another mode
+explicitly when needed:
+
+```powershell
+Get-KelvinWorkload -PaginationMode Cursor
+Get-KelvinAsset -PaginationMode Limits
+```
+
+Other cmdlets and direct `Invoke-KelvinApi` calls retain their existing defaults.
+These cmdlets were selected for potentially high-volume collections; small
+lookup lists keep cursor pagination. In a live measurement, listing
+2,722 workloads took about 5 seconds with streaming versus about 98 seconds
+with the default 20-item cursor pages. Actual gains depend on collection size
+and network latency.
+
+`-Detailed` still performs one additional request per item, so those requests
+can dominate the overall runtime.
+
+A stream failure after records have been emitted is reported without replaying
+the stream; use `-ErrorAction Stop` when incomplete results must fail the operation.
 
 ## Invoke-KelvinApi
 
@@ -93,6 +122,25 @@ Notes:
 - The first parameter is the API path relative to the base Kelvin URL.
 - Use `-Method` to specify HTTP verb (GET, POST, PUT, DELETE, etc.).
 - Pass simple hashtables for JSON bodies; the module will serialize them.
+- Cursor (default) and limits pagination automatically return results from all
+  remaining pages, preserving query filters, HTTP method, and request body.
+  Authentication is checked before every page request.
+- An HTTP 401 triggers token renewal and one retry of that same request.
+  If renewal fails or the retry is rejected, the error is surfaced. Other HTTP
+  errors are not retried. This also applies before a JSON stream or raw download
+  starts; an already-started stream is never replayed.
+- Use `-PaginationMode Limits -Parameters @{ page_size = 100 }` for
+  page-number pagination, or `-PaginationMode Stream` to
+  receive parsed JSON objects incrementally without buffering the whole response.
+- `-PaginationMode Cursor|Limits|Stream` selects parsed-result pagination and
+  overrides `pagination_type` and `Accept` without modifying your hashtable.
+  When omitted, existing query/header settings still apply (cursor by default).
+  The endpoint must support the selected mode.
+- `-AsStream` instead returns a raw response stream, suitable for binary
+  downloads; the caller must dispose that stream after use. It cannot be combined
+  with `-PaginationMode`.
+- If a later page or stream record fails, previously emitted results cannot be
+  withdrawn. Use `-ErrorAction Stop` when incomplete results must fail the operation.
 - At the moment, only Kelvin Cloud instances are supported. Support for local
   Kelvin instances will be added later.
 

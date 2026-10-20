@@ -50,9 +50,9 @@ function Connect-KelvinAccount {
         [string] $ApiVersion = 'v4',
 
         # The refresh window (in seconds) before the access token expires. If the token 
-        # is set to expire within this window, it will be refreshed. Defaults to 300 seconds (5 minutes).
+        # is set to expire within this window, it will be refreshed. Defaults to 120 seconds (2 minutes).
         [Parameter()]
-        [int] $RefreshWindow = 300
+        [int] $RefreshWindow = 120
     )
 
     $endpointUrl = $Url.AbsoluteUri.TrimEnd('/')

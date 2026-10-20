@@ -95,14 +95,21 @@ Describe 'Connect-KelvinAccount' {
         It 'Stores the refresh token, expiration times and refresh window' {
             $cred = [pscredential]::new('admin', (ConvertTo-SecureString 'pass' -AsPlainText -Force))
             $before = [DateTime]::UtcNow
-            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Credentials $cred -RefreshWindow 120
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Credentials $cred -RefreshWindow 45
 
             $session = & (Get-Module PoshKelvin) { $script:KelvinSession }
             $session.RefreshToken | Should -Be 'returned-refresh-token'
             $session.AccessTokenExpiresAt | Should -BeGreaterOrEqual $before.AddSeconds(300)
             $session.AccessTokenExpiresAt | Should -BeLessOrEqual ([DateTime]::UtcNow.AddSeconds(300))
             $session.RefreshTokenExpiresAt | Should -BeGreaterOrEqual $before.AddSeconds(1800)
-            $session.RefreshWindow | Should -Be 120
+            $session.RefreshWindow | Should -Be 45
+        }
+
+        It 'Defaults the refresh window to two minutes' {
+            $cred = [pscredential]::new('admin', (ConvertTo-SecureString 'pass' -AsPlainText -Force))
+            Connect-KelvinAccount -Url 'https://kelvin.example.com/' -Credentials $cred
+
+            & (Get-Module PoshKelvin) { $script:KelvinSession.RefreshWindow } | Should -Be 120
         }
 
         It 'Uses the service root for the token endpoint when the URL contains an API version' {

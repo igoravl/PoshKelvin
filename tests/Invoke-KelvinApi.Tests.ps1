@@ -163,6 +163,88 @@ Describe 'Invoke-KelvinApi' {
                 $ContentType -eq 'text/plain'
             }
         }
+
+        It 'Forwards Accept and enables per-page authentication checks' {
+            Invoke-KelvinApi 'assets/list' -Accept 'application/x-json-stream'
+
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -ParameterFilter {
+                $Headers.Accept -eq 'application/x-json-stream' -and $RefreshToken
+            }
+        }
+    }
+
+    Context 'Parsed pagination modes' {
+
+        BeforeAll {
+            Set-KelvinTestConnection
+            Mock _GetPaginatedData {
+                [pscustomobject]@{ name = 'result-item' }
+            } -ModuleName PoshKelvin
+        }
+
+        It 'Selects <Mode> with its query value and media type' -ForEach @(
+            @{ Mode = 'Cursor'; QueryValue = 'cursor'; MediaType = 'application/json-cursor' }
+            @{ Mode = 'Limits'; QueryValue = 'limits'; MediaType = 'application/x-json-limits' }
+            @{ Mode = 'Stream'; QueryValue = 'stream'; MediaType = 'application/x-json-stream' }
+        ) {
+            $result = Invoke-KelvinApi 'assets/list' -Method POST -Body @{ names = @('a') } `
+                -PaginationMode $Mode -Parameters @{ search = 'my asset' } -TypeName 'Kelvin.Asset'
+
+            $result.name | Should -Be 'result-item'
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                $Uri.Query -match "pagination_type=$QueryValue" -and
+                $Uri.AbsoluteUri -like '*search=my%20asset*' -and
+                $Headers.Accept -eq $MediaType -and
+                $Method -eq 'POST' -and ($Body | ConvertFrom-Json).names[0] -eq 'a' -and
+                $TypeName -eq 'Kelvin.Asset' -and $RefreshToken
+            }
+        }
+
+        It 'Preserves the default request when PaginationMode is omitted' {
+            Invoke-KelvinApi 'workloads/list'
+
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -ParameterFilter {
+                $Uri -eq 'https://kelvin.example.com/api/v4/workloads/list' -and
+                $Headers.Accept -eq 'application/json'
+            }
+        }
+
+        It 'Preserves legacy query-based selection when PaginationMode is omitted' {
+            Invoke-KelvinApi 'workloads/list' -Parameters @{ pagination_type = 'limits'; page_size = 100 }
+
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -ParameterFilter {
+                $Uri.Query -match 'pagination_type=limits' -and $Uri.Query -match 'page_size=100'
+            }
+        }
+
+        It 'Overrides conflicting query and Accept settings without modifying the caller hashtable' {
+            $parameters = @{ pagination_type = 'stream'; page_size = 100; name = @('a', 'b') }
+            Invoke-KelvinApi 'workloads/list' -Parameters $parameters `
+                -Accept 'application/x-json-stream' -PaginationMode cUrSoR
+
+            $parameters.pagination_type | Should -Be 'stream'
+            $parameters.Count | Should -Be 3
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -ParameterFilter {
+                $Uri.Query -match 'pagination_type=cursor' -and
+                $Uri.Query -match 'page_size=100' -and
+                $Uri.Query -match 'name=a' -and $Uri.Query -match 'name=b' -and
+                $Headers.Accept -eq 'application/json-cursor'
+            }
+        }
+
+        It 'Adds pagination_type only to a copy of the caller hashtable' {
+            $parameters = @{ search = 'asset' }
+            Invoke-KelvinApi 'assets/list' -Parameters $parameters -PaginationMode Stream
+            $parameters.ContainsKey('pagination_type') | Should -BeFalse
+        }
+
+        It 'Rejects an unsupported pagination mode' {
+            { Invoke-KelvinApi 'workloads/list' -PaginationMode Invalid } | Should -Throw
+        }
+
+        It 'Rejects PaginationMode with raw AsStream' {
+            { Invoke-KelvinApi 'workloads/list' -PaginationMode Stream -AsStream } | Should -Throw '*parameter set*'
+        }
     }
 
     Context 'Return value pass-through' {

@@ -1,7 +1,10 @@
 function _GetToken {
     [CmdletBinding()]
     [OutputType([string])]
-    param ()
+    param (
+        [Parameter()]
+        [switch] $Renew
+    )
 
     $session = $script:KelvinSession
 
@@ -18,13 +21,13 @@ function _GetToken {
             [long]($session.RefreshTokenExpiresAt - $now).TotalSeconds,
             $session.RefreshWindow)
 
-    if ($session.AccessTokenExpiresAt -gt $threshold) {
+    if (-not $Renew -and $session.AccessTokenExpiresAt -gt $threshold) {
         Write-Verbose 'Using cached access token.'
         return $session.AccessToken
     }
 
     if ($session.RefreshToken -and $session.RefreshTokenExpiresAt -gt $threshold) {
-        Write-Verbose 'Access token expired or about to expire. Refreshing token.'
+        Write-Verbose 'Renewing the access token using the cached refresh token.'
 
         try {
             _RequestToken -Session $session -UseRefreshToken

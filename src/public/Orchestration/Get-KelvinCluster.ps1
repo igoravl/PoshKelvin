@@ -4,11 +4,18 @@
 
 .DESCRIPTION
     Retrieves clusters from the currently connected Kelvin instance.
+    Lists use parsed streaming by default. Use PaginationMode to select cursor
+    or limits pagination instead. Detailed lookups remain separate requests.
 
 .EXAMPLE
     PS> Get-KelvinCluster
 
     Lists all clusters.
+
+.EXAMPLE
+    PS> Get-KelvinCluster -PaginationMode Cursor
+
+    Lists clusters using cursor pagination instead of streaming.
 
 .EXAMPLE
     PS> Get-KelvinCluster -Status online -Detailed
@@ -43,6 +50,11 @@ Function Get-KelvinCluster {
         [ValidateSet('pending_provision', 'pending', 'online', 'unreachable', 'requires_attention')]
         [string[]] $Status,
 
+        # Select list pagination. Stream emits parsed objects as they arrive.
+        [Parameter()]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode = 'Stream',
+
         # Return detailed information for each cluster.
         [Parameter()]
         [switch] $Detailed
@@ -51,7 +63,7 @@ Function Get-KelvinCluster {
     Process {
         $params = _GetParams
 
-        Invoke-KelvinApi 'orchestration/clusters/list' -Method Get -TypeName 'Kelvin.Cluster' -Parameters $params `
+        Invoke-KelvinApi 'orchestration/clusters/list' -Method Get -TypeName 'Kelvin.Cluster' -Parameters $params -PaginationMode $PaginationMode `
         | ForEach-Object {
             if ($Detailed.IsPresent) {
                 $ret = (Invoke-KelvinApi "orchestration/clusters/$($_.name)/get" -Method Get -TypeName 'Kelvin.Cluster')

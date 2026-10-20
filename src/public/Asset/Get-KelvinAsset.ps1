@@ -4,11 +4,18 @@
 
 .DESCRIPTION
     Retrieves assets from the currently connected Kelvin instance.
+    Lists use parsed streaming by default. Use PaginationMode to select cursor
+    or limits pagination instead. Detailed lookups remain separate requests.
 
 .EXAMPLE
     PS> Get-KelvinAsset
 
     Lists all assets.
+
+.EXAMPLE
+    PS> Get-KelvinAsset -PaginationMode Cursor
+
+    Lists assets using cursor pagination instead of streaming.
 
 .EXAMPLE
     PS> Get-KelvinAsset -AssetType pump -Status online -Detailed
@@ -41,6 +48,11 @@ Function Get-KelvinAsset {
         [ValidateSet('online', 'offline', 'unknown')]
         [string[]] $Status,
 
+        # Select list pagination. Stream emits parsed objects as they arrive.
+        [Parameter()]
+        [ValidateSet('Cursor', 'Limits', 'Stream')]
+        [string] $PaginationMode = 'Stream',
+
         # Return detailed information for each asset.
         [Parameter()]
         [switch] $Detailed
@@ -49,7 +61,7 @@ Function Get-KelvinAsset {
     Process {
         $params = _GetParams
 
-        Invoke-KelvinApi 'assets/list' -Method Get -TypeName 'Kelvin.Asset' -Parameters $params `
+        Invoke-KelvinApi 'assets/list' -Method Get -TypeName 'Kelvin.Asset' -Parameters $params -PaginationMode $PaginationMode `
         | ForEach-Object {
             if ($Detailed.IsPresent) {
                 $ret = (Invoke-KelvinApi "assets/$($_.name)/get" -Method Get -TypeName 'Kelvin.Asset')

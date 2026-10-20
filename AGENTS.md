@@ -84,6 +84,23 @@ param (
 )
 ```
 
+### List pagination and streaming
+
+- `Invoke-KelvinApi` uses parsed results by default. Its `-PaginationMode`
+  selects `Cursor`, `Limits`, or `Stream`; `-AsStream` is a separate raw-stream
+  option and must not be used to return parsed list objects.
+- The list cmdlets that default to streaming are documented in the README's
+  **Streaming list defaults** section. Keep small lookup lists on cursor mode.
+- Before enabling streaming for a list cmdlet, verify that its exact HTTP method
+  and endpoint support `application/x-json-stream` in the OpenAPI spec.
+- Forward a list cmdlet's `-PaginationMode` only to its list request. Keep
+  per-item detail requests unchanged, preserve filters, and do not leak the
+  mode into query parameters.
+- Streaming emits objects incrementally. If a later record fails, already
+  emitted results cannot be withdrawn or safely replayed; preserve that error
+  behavior and cover mode selection, filters, output, and detail requests in
+  Pester tests.
+
 ### Sensitive information
 
 This project is open-source. **Never** commit:

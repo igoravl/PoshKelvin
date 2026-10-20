@@ -32,6 +32,21 @@ Describe '_GetToken' {
         Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 0 -Exactly
     }
 
+    It 'Renews a rejected token even when its cached expiration is still in the future' {
+        & (Get-Module PoshKelvin) { _GetToken -Renew } | Should -Be 'new-access-token'
+        Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+            $Body.grant_type -eq 'refresh_token'
+        }
+    }
+
+    It 'Uses the cached token when more than two minutes remain' {
+        & (Get-Module PoshKelvin) {
+            $script:KelvinSession.AccessTokenExpiresAt = [DateTime]::UtcNow.AddSeconds(180)
+            _GetToken
+        } | Should -Be 'test-bearer-token'
+        Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 0 -Exactly
+    }
+
     It 'Refreshes the access token when it is within the refresh window' {
         & (Get-Module PoshKelvin) { $script:KelvinSession.AccessTokenExpiresAt = [DateTime]::UtcNow.AddSeconds(60) }
 

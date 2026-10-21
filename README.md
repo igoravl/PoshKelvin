@@ -84,7 +84,7 @@ write-only: once created, they cannot be read back through the API.
 Get-KelvinSecret
 New-KelvinSecret -Name my-secret -Value 'P@ssw0rd!'
 Set-KelvinSecret -Name my-secret -Value 'NewP@ssw0rd!'
-Get-KelvinSecret -Name my-secret | Remove-KelvinSecret
+Remove-KelvinSecret -Name my-secret
 ```
 
 - The Kelvin API does not support in-place updates, so `Set-KelvinSecret`

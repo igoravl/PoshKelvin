@@ -18,9 +18,9 @@
     Removes the specified secret without prompting for confirmation.
 
 .EXAMPLE
-    PS> Get-KelvinSecret -Name my-secret | Remove-KelvinSecret -Force
+    PS> Remove-KelvinSecret -Name first-secret, second-secret -Force
 
-    Removes the secret retrieved via pipeline without prompting for confirmation.
+    Removes both secrets without prompting for confirmation.
 #>
 function Remove-KelvinSecret {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]

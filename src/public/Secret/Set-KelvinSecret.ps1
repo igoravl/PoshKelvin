@@ -7,11 +7,12 @@
     instance by removing the current secret and creating a new one with the
     same name and the new value. Because the Kelvin API does not support
     in-place updates, this cmdlet performs a delete followed by a create.
-    
-    IMPORTANT: This operation is not atomic. The delete and create are separate  
-    API calls. If the delete succeeds but the subsequent create fails, the  
-    secret will be permanently removed and its previous value cannot be  
-    restored by this cmdlet. Ensure you have any required backup of the secret  
+    If the delete fails, the create is not attempted.
+
+    IMPORTANT: This operation is not atomic. The delete and create are separate
+    API calls. If the delete succeeds but the subsequent create fails, the
+    secret will be permanently removed and its previous value cannot be
+    restored by this cmdlet. Ensure you have any required backup of the secret
     value or can safely recreate it before proceeding.
 
 .EXAMPLE
@@ -58,7 +59,7 @@ function Set-KelvinSecret {
                 return
             }
 
-            Invoke-KelvinApi "secrets/$Name/delete" -Method Post | Out-Null
+            Invoke-KelvinApi "secrets/$Name/delete" -Method Post -ErrorAction Stop | Out-Null
         }
         catch {
             Write-Error "Failed to delete existing secret '$Name': $_"
@@ -70,7 +71,7 @@ function Set-KelvinSecret {
                 name  = $Name
                 value = $Value
             }
-            $result = Invoke-KelvinApi 'secrets/create' -Method Post -Body $requestBody -TypeName 'Kelvin.Secret'
+            $result = Invoke-KelvinApi 'secrets/create' -Method Post -Body $requestBody -TypeName 'Kelvin.Secret' -ErrorAction Stop
             Write-Output $result
         }
         catch {

@@ -62,6 +62,30 @@ Describe 'Remove-KelvinSecret' {
             Remove-KelvinSecret -Name 'my-secret' -WhatIf
             Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -Times 0
         }
+
+        It 'Does not call the API when -Force is combined with -WhatIf' {
+            Remove-KelvinSecret -Name 'my-secret' -Force -WhatIf
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -Times 0
+        }
+    }
+
+    Context 'Pipeline input' {
+
+        BeforeAll {
+            Mock Invoke-KelvinApi { } -ModuleName PoshKelvin
+        }
+
+        It 'Accepts secret objects returned by Get-KelvinSecret' {
+            @(
+                [PSCustomObject]@{ PSTypeName = 'Kelvin.Secret'; name = 'first-secret' }
+                [PSCustomObject]@{ PSTypeName = 'Kelvin.Secret'; name = 'second-secret' }
+            ) | Remove-KelvinSecret -Force
+
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -Times 2 -Exactly
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                $Path -eq 'secrets/second-secret/delete'
+            }
+        }
     }
 
     Context 'Error handling' {
@@ -74,6 +98,25 @@ Describe 'Remove-KelvinSecret' {
             $errVar = $null
             Remove-KelvinSecret -Name 'bad-secret' -Force -ErrorVariable errVar -ErrorAction SilentlyContinue
             $errVar | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'HTTP failure through Invoke-KelvinApi' {
+
+        BeforeAll {
+            Mock Invoke-RestMethod {
+                if ($Uri.AbsolutePath -like '*/bad-secret/delete') { throw 'HTTP 404 Not Found' }
+            } -ModuleName PoshKelvin
+        }
+
+        It 'Reports the failure and continues with the remaining secrets' {
+            $errVar = $null
+            Remove-KelvinSecret -Name 'bad-secret', 'good-secret' -Force -ErrorVariable errVar -ErrorAction SilentlyContinue
+
+            ($errVar | Out-String) | Should -BeLike "*Failed to delete secret 'bad-secret'*"
+            Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                $Uri.AbsolutePath -like '*/good-secret/delete'
+            }
         }
     }
 }

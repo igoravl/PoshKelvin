@@ -72,6 +72,26 @@ Describe 'Set-KelvinSecret' {
         }
     }
 
+    Context 'Delete HTTP failure through Invoke-KelvinApi' {
+
+        BeforeAll {
+            Mock Invoke-RestMethod {
+                if ($Uri.AbsolutePath -like '*/delete') { throw 'HTTP 403 Forbidden' }
+                [PSCustomObject]@{ name = 'my-secret' }
+            } -ModuleName PoshKelvin
+        }
+
+        It 'Does not create the secret when the delete request fails' {
+            $errVar = $null
+            Set-KelvinSecret -Name 'my-secret' -Value 'val' -Force -ErrorVariable errVar -ErrorAction SilentlyContinue
+
+            $errVar | Should -Not -BeNullOrEmpty
+            Should -Invoke Invoke-RestMethod -ModuleName PoshKelvin -Times 0 -Exactly -ParameterFilter {
+                $Uri.AbsolutePath -like '*/secrets/create'
+            }
+        }
+    }
+
     Context 'Create failure' {
 
         BeforeAll {
@@ -96,6 +116,11 @@ Describe 'Set-KelvinSecret' {
 
         It 'Does not call the API when -WhatIf is specified' {
             Set-KelvinSecret -Name 'my-secret' -Value 'val' -WhatIf
+            Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -Times 0
+        }
+
+        It 'Does not call the API when -Force is combined with -WhatIf' {
+            Set-KelvinSecret -Name 'my-secret' -Value 'val' -Force -WhatIf
             Should -Invoke Invoke-KelvinApi -ModuleName PoshKelvin -Times 0
         }
     }

@@ -51,7 +51,7 @@ function Remove-KelvinSecret {
                     continue
                 }
 
-                Invoke-KelvinApi "secrets/$s/delete" -Method Post | Out-Null
+                Invoke-KelvinApi "secrets/$s/delete" -Method Post -ErrorAction Stop | Out-Null
             }
             catch {
                 Write-Error "Failed to delete secret '$s': $_"

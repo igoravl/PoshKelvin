@@ -75,6 +75,28 @@ $version.Major
 The cmdlet reads the `x-deploy-version` response header from `/instance/status/get`.
 A missing header or a value that cannot be parsed as `System.Version` raises an error.
 
+## Managing secrets
+
+Secrets can be listed, created, replaced, and removed. Secret values are
+write-only: once created, they cannot be read back through the API.
+
+```powershell
+Get-KelvinSecret
+New-KelvinSecret -Name my-secret -Value 'P@ssw0rd!'
+Set-KelvinSecret -Name my-secret -Value 'NewP@ssw0rd!'
+Get-KelvinSecret -Name my-secret | Remove-KelvinSecret
+```
+
+- `Set-KelvinSecret` and `Remove-KelvinSecret` prompt for confirmation by
+  default. Use `-Force` to skip the prompt; `-WhatIf` is still honored when
+  combined with `-Force`.
+- The Kelvin API does not support in-place updates, so `Set-KelvinSecret`
+  deletes the secret and then recreates it. This is **not atomic**: if the
+  delete succeeds but the create fails, the secret is gone. If the delete
+  fails, no create is attempted.
+- `Remove-KelvinSecret` accepts several names or pipeline input; a failure on
+  one secret is reported and the remaining secrets are still processed.
+
 ## Token renewal
 
 API commands automatically renew tokens when needed after `Connect-KelvinAccount`;

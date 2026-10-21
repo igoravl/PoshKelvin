@@ -40,7 +40,7 @@ function New-KelvinSecret {
         }
 
         try {
-            $result = Invoke-KelvinApi 'secrets/create' -Method Post -Body $requestBody -TypeName 'Kelvin.Secret'
+            $result = Invoke-KelvinApi 'secrets/create' -Method Post -Body $requestBody -TypeName 'Kelvin.Secret' -ErrorAction Stop
             Write-Output $result
         }
         catch {

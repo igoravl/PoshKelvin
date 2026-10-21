@@ -28,6 +28,7 @@ function Remove-KelvinSecret {
         # Secret name(s) to delete.
         [Parameter(Position = 0, Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
         [ValidatePattern('^[a-z]([-a-z0-9]*[a-z0-9])?$')]
+        [ValidateLength(1, 32)]
         [Alias('secret_name')]
         [string[]] $Name,
 

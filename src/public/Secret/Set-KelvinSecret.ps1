@@ -7,6 +7,12 @@
     instance by removing the current secret and creating a new one with the
     same name and the new value. Because the Kelvin API does not support
     in-place updates, this cmdlet performs a delete followed by a create.
+    
+    IMPORTANT: This operation is not atomic. The delete and create are separate  
+    API calls. If the delete succeeds but the subsequent create fails, the  
+    secret will be permanently removed and its previous value cannot be  
+    restored by this cmdlet. Ensure you have any required backup of the secret  
+    value or can safely recreate it before proceeding.
 
 .EXAMPLE
     PS> Set-KelvinSecret -Name my-secret -Value 'NewP@ssw0rd!'

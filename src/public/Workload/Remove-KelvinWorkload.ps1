@@ -19,7 +19,7 @@
 .EXAMPLE
     PS> Get-KelvinWorkload -ClusterName my-cluster | Remove-KelvinWorkload -Force
 
-    Removes all workloads in the specified cluster via pipeline input.
+    Removes all workloads in the specified cluster.
 #>
 function Remove-KelvinWorkload {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]

@@ -14,7 +14,7 @@
 .EXAMPLE
     PS> Get-KelvinCluster -Name my-cluster | Get-KelvinClusterService -Status running
 
-    Lists running services for a cluster obtained via pipeline.
+    Lists running services in the specified cluster.
 #>
 Function Get-KelvinClusterService {
     [OutputType('Kelvin.ClusterService')]

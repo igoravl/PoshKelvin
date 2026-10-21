@@ -14,7 +14,7 @@
 .EXAMPLE
     PS> Get-KelvinCluster -Name my-cluster | Get-KelvinClusterNode -Status online
 
-    Lists online nodes for a cluster obtained via pipeline.
+    Lists online nodes in the specified cluster.
 #>
 Function Get-KelvinClusterNode {
     [OutputType('Kelvin.ClusterNode')]

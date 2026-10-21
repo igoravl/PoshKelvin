@@ -7,16 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-21
+
+### Added
+
+- `-IncludeHeaders` parameter on `Invoke-KelvinApi` (parsed results only) to attach selected response headers to each returned object in an `_headers` map. Works with cursor, limits, and stream pagination. For security reasons, `Cookie`, `Set-Cookie`, and `Sec-*` headers are never included, even when requested.
+- `Get-KelvinVersion` — Get the deployed version of the connected instance (from the `x-deploy-version` response header) as a `System.Version` object.
+- `New-KelvinSecret` — Create a new secret.
+- `Set-KelvinSecret` — Replace the value of an existing secret by deleting and recreating it. This is not atomic: if recreation fails, the secret is lost.
+- `Remove-KelvinSecret` — Permanently delete one or more secrets.
+
 ## [0.6.0] - 2026-10-20
 
 ### Added
 
-- `-Interactive` switch on `Connect-KelvinAccount` to sign in through the default browser using native OAuth authorization code with PKCE (S256) and state validation. Uses the public `kelvin-client` client and `http://localhost:38638/` callback by default; `KELVIN_AUTH_REDIRECT_URI` overrides the loopback URL. No password or browser dependencies are required. `-Timeout` sets how long to wait (default: 300 seconds). See [docs/interactive-authentication.md](docs/interactive-authentication.md).
-
-### Changed
-
-- Sessions now record their authentication mode. Interactive sessions renew tokens with the refresh token and ask for a new `Connect-KelvinAccount -Interactive` when it expires; `Update-KelvinToken -Force` reports that it is unavailable for them.
-- Interactive sign-in always prints the authorization URL before attempting to open the default browser, so it can be opened manually if no browser window appears (for example, on WSL or Linux).
+- `-Interactive` switch on `Connect-KelvinAccount` to sign in through the default browser using native OAuth authorization code with PKCE (S256) and state validation. Uses the public `kelvin-client` client and `http://localhost:38638/` callback by default; `KELVIN_AUTH_REDIRECT_URI` overrides the loopback URL. No password or browser dependencies are required. `-Timeout` sets how long to wait (default: 300 seconds). The authorization URL is printed before the browser is opened, so it can be opened manually if no browser window appears (for example, on WSL or Linux). Interactive sessions renew tokens with the refresh token and ask for a new `Connect-KelvinAccount -Interactive` when it expires; `Update-KelvinToken -Force` is not available for them. See [docs/interactive-authentication.md](docs/interactive-authentication.md).
 
 ## [0.5.0] - 2026-10-19
 
@@ -25,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `-PaginationMode Cursor|Limits|Stream` on `Invoke-KelvinApi` to select parsed-result pagination independently of raw `-AsStream` downloads, preserving existing defaults when omitted.
 - Limits pagination and incremental newline-delimited JSON stream parsing in `Invoke-KelvinApi`, for both GET and POST list requests.
 - `Update-KelvinToken` for immediate, on-demand token refresh, with `-Force` for re-authentication, verbose diagnostics, and a status object containing UTC expiration dates. Normal API calls still renew tokens automatically.
-- Automatic access token renewal. Tokens are refreshed using the refresh token when they are about to expire, falling back to re-authentication with the cached credentials when the refresh token is no longer valid.
+- Automatic access token renewal. Tokens are refreshed using the refresh token when they are about to expire, falling back to re-authentication with the cached credentials when the refresh token is no longer valid. Authentication is checked before each page request, and an HTTP 401 response triggers token renewal and one retry of the rejected request, including paginated requests, JSON streams, and raw downloads. Other errors and already-started streams are not retried.
 - `-RefreshWindow` parameter on `Connect-KelvinAccount` to control how many seconds before expiration a token is renewed (default: 120, or two minutes).
 - `Disconnect-KelvinAccount` — End the server-side session (revoking the refresh token) and clear the local session, discarding the cached credentials and tokens.
 
@@ -38,9 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - `Connect-KelvinAccount` now resolves the authentication endpoint correctly when the URL already includes an API version (for example, `https://host/api/v4`).
-- Forward cursor requests no longer send a backward cursor. Pagination preserves filters and request bodies, checks authentication before each page, detects repeated pages, and retains HTTP error details.
-- Corrected JSON formatting of pagination verbose output and applied requested type names to streamed and non-paginated results.
-- HTTP 401 responses trigger token renewal and one retry of the rejected request, including paginated requests, JSON streams, and raw downloads. Other errors and already-started streams are not retried.
+- Forward cursor requests no longer send a backward cursor. Pagination now detects repeated pages and retains HTTP error details.
+- Corrected JSON formatting of pagination verbose output and applied requested type names to non-paginated results.
 
 ## [0.4.1] - 2026-03-17
 

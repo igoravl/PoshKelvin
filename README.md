@@ -62,6 +62,36 @@ Install-Module PoshKelvin -Scope CurrentUser
    Disconnect-KelvinAccount
    ```
 
+## Instance version
+
+Use `Get-KelvinVersion` after connecting to retrieve the deployed instance version
+as a `System.Version` object:
+
+```powershell
+$version = Get-KelvinVersion
+$version.Major
+```
+
+The cmdlet reads the `x-deploy-version` response header from `/instance/status/get`.
+A missing header or a value that cannot be parsed as `System.Version` raises an error.
+
+## Managing secrets
+
+Secrets can be listed, created, replaced, and removed. Secret values are
+write-only: once created, they cannot be read back through the API.
+
+```powershell
+Get-KelvinSecret
+New-KelvinSecret -Name my-secret -Value 'P@ssw0rd!'
+Set-KelvinSecret -Name my-secret -Value 'NewP@ssw0rd!'
+Get-KelvinSecret -Name my-secret | Remove-KelvinSecret
+```
+
+- The Kelvin API does not support in-place updates, so `Set-KelvinSecret`
+  deletes the secret and then recreates it. This is **not atomic**: if the
+  delete succeeds but the create fails, the secret is gone. If the delete
+  fails, no create is attempted.
+
 ## Token renewal
 
 API commands automatically renew tokens when needed after `Connect-KelvinAccount`;
@@ -157,6 +187,11 @@ Notes:
 - `-AsStream` instead returns a raw response stream, suitable for binary
   downloads; the caller must dispose that stream after use. It cannot be combined
   with `-PaginationMode`.
+- `-IncludeHeaders 'Content-Type', 'X-Request-Id'` adds an `_headers` map with
+  the selected response headers to every parsed object (access it with
+  `$item._headers`). Missing headers are omitted from the map. For security
+  reasons, `Cookie`, `Set-Cookie`, and `Sec-*` headers are never included, even
+  when requested. It cannot be combined with `-AsStream`.
 - If a later page or stream record fails, previously emitted results cannot be
   withdrawn. Use `-ErrorAction Stop` when incomplete results must fail the operation.
 - At the moment, only Kelvin Cloud instances are supported. Support for local

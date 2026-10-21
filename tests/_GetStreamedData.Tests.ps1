@@ -49,6 +49,9 @@ Describe 'Streaming HTTP requests' {
                         else { '200 OK' }
                         $writer.WriteLine("HTTP/1.1 $status")
                         $writer.WriteLine('Content-Type: application/x-json-stream')
+                        $writer.WriteLine('X-Request-Id: stream-request')
+                        $writer.WriteLine('Set-Cookie: session=secret')
+                        $writer.WriteLine('Sec-Test: secret')
                         $writer.WriteLine('Connection: close')
                         $writer.WriteLine()
                         if ($status -eq '401 Unauthorized') {
@@ -134,6 +137,21 @@ Describe 'Streaming HTTP requests' {
             $results[0].PSObject.TypeNames | Should -Contain Kelvin.StreamItem
         }
 
+        It 'Attaches selected response and content headers to each record' {
+            $results = @(& (Get-Module PoshKelvin) {
+                param ($Uri)
+                _GetStreamedData -Uri $Uri -Method GET -Headers @{} `
+                    -IncludeHeaders 'x-request-id', 'Content-Type', 'Set-Cookie', 'Sec-Test'
+            } "$baseUri/records")
+            $results.Count | Should -Be 2
+            foreach ($result in $results) {
+                $result._headers['x-request-id'] | Should -Be 'stream-request'
+                $result._headers['Content-Type'] | Should -Be 'application/x-json-stream'
+                $result._headers.Count | Should -Be 2
+                $result.PSObject.Properties.Name | Should -Not -Contain '$headers'
+            }
+        }
+
         It 'Preserves POST method and JSON request body' {
             $result = & (Get-Module PoshKelvin) {
                 param ($Uri)
@@ -171,6 +189,21 @@ Describe 'Streaming HTTP requests' {
         It 'Retries an Invoke-RestMethod request with a renewed token' {
             (Invoke-KelvinApi unauthorized-json -ErrorAction Stop).id | Should -Be 1
             Should -Invoke _GetToken -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter { $Renew }
+        }
+
+        It 'Retries a request with selected headers using a renewed token' {
+            $result = Invoke-KelvinApi unauthorized-json -IncludeHeaders 'X-Request-Id', 'Set-Cookie' `
+                -ErrorAction Stop -WarningAction SilentlyContinue
+            $result.id | Should -Be 1
+            $result._headers['X-Request-Id'] | Should -Be 'stream-request'
+            $result._headers.Contains('Set-Cookie') | Should -BeFalse
+            Should -Invoke _GetToken -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter { $Renew }
+        }
+
+        It 'Attaches selected headers to streamed records from Invoke-KelvinApi' {
+            $result = @(Invoke-KelvinApi records -PaginationMode Stream -IncludeHeaders 'X-Request-Id' -ErrorAction Stop)
+            $result.Count | Should -Be 2
+            $result[1]._headers['X-Request-Id'] | Should -Be 'stream-request'
         }
 
         It 'Retries a rejected JSON stream selected through <Selection> before emitting any records' -ForEach @(

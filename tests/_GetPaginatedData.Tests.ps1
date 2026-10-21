@@ -346,4 +346,48 @@ Describe '_GetPaginatedData' {
             }
         }
     }
+
+    It 'Attaches selected response headers from each page and excludes sensitive headers' {
+        Mock Invoke-RestMethod { throw 'Invoke-RestMethod should not be used when headers are requested.' } -ModuleName PoshKelvin
+        Mock Invoke-WebRequest {
+            $lastPage = $Uri.Query -match 'next='
+            $page = $(if ($lastPage) { 2 } else { 1 })
+            $content = @{
+                data = @(@{ id = $page })
+                pagination = @{ next_page = $(if (-not $lastPage) { 'p2' }) }
+            } | ConvertTo-Json -Depth 5
+            $headers = [System.Collections.Generic.Dictionary[string, string[]]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $headers['x-request-id'] = [string[]] @("req-$page")
+            $headers['Set-Cookie'] = [string[]] @('session=secret')
+            $headers['Sec-Fetch-Site'] = [string[]] @('same-origin')
+            $headers['Vary'] = [string[]] @('Accept', 'Origin')
+            [PSCustomObject]@{ Content = $content; Headers = $headers }
+        } -ModuleName PoshKelvin
+
+        $results = & (Get-Module PoshKelvin) {
+            _GetPaginatedData -Uri 'https://kelvin.example.com/api/v4/assets/list' -Method GET `
+                -IncludeHeaders 'X-Request-Id', 'Vary', 'Set-Cookie', 'Sec-Fetch-Site', 'X-Missing' -TypeName Kelvin.Asset
+        }
+
+        $results.Count | Should -Be 2
+        $results[0].id | Should -Be 1
+        $results[0].PSObject.TypeNames | Should -Contain 'Kelvin.Asset'
+        $results[0]._headers['X-Request-Id'] | Should -Be 'req-1'
+        $results[1]._headers['X-Request-Id'] | Should -Be 'req-2'
+        $results[0]._headers['Vary'] | Should -Be 'Accept, Origin'
+        @($results[0]._headers.Keys) | Should -Be @('X-Request-Id', 'Vary')
+        $results[0].PSObject.Properties.Name | Should -Not -Contain '$headers'
+        Should -Invoke Invoke-WebRequest -ModuleName PoshKelvin -Times 2 -Exactly
+    }
+
+    It 'Leaves items unchanged when headers are not requested' {
+        Mock Invoke-RestMethod { [PSCustomObject]@{ id = 1 } } -ModuleName PoshKelvin
+
+        $result = & (Get-Module PoshKelvin) {
+            _GetPaginatedData -Uri 'https://kelvin.example.com/api/v4/assets/1' -Method GET
+        }
+
+        $result.PSObject.Properties.Name | Should -Not -Contain '_headers'
+    }
+
 }

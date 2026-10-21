@@ -15,6 +15,8 @@
     A request rejected with HTTP 401 is retried once after renewing the token.
     Other errors are not retried. Streams are never replayed after records have
     been emitted.
+    Use IncludeHeaders to attach selected response headers to each parsed object
+    in an '_headers' property. Cookie and Sec-* headers are always excluded.
 
 .EXAMPLE
     PS> Invoke-KelvinApi 'workloads/list'
@@ -40,6 +42,13 @@
     PS> Invoke-KelvinApi 'assets/list' -PaginationMode Stream
 
     Parses streamed JSON records into objects. Use -AsStream only for a raw stream.
+
+.EXAMPLE
+    PS> $result = Invoke-KelvinApi 'workloads/list' -IncludeHeaders 'Content-Type', 'X-Request-Id'
+    PS> $result[0]._headers
+
+    Adds an '_headers' map with the selected response headers to each returned object.
+    Cookie and Sec-* headers are never included, even when requested.
 #>
 function Invoke-KelvinApi {
     [CmdletBinding(DefaultParameterSetName = 'Parsed')]
@@ -79,9 +88,15 @@ function Invoke-KelvinApi {
         [ValidateSet('Cursor', 'Limits', 'Stream')]
         [string] $PaginationMode,
 
+        # Response header names to include in an '_headers' map on each returned object.
+        # Cookie and Sec-* headers are always excluded for security reasons. Cannot be combined with AsStream.
+        [Parameter(ParameterSetName = 'Parsed')]
+        [AllowEmptyCollection()]
+        [string[]] $IncludeHeaders,
+
         # When specified, returns the raw response stream instead of parsed objects.
         [Parameter(ParameterSetName = 'Raw')]
-        [switch]$AsStream
+        [switch] $AsStream
     )
 
     $token = _GetToken
@@ -110,6 +125,22 @@ function Invoke-KelvinApi {
             'Stream' { 'application/x-json-stream' }
         }
         Write-Verbose "Using parsed-result pagination mode '$PaginationMode' (Accept: $Accept), overriding pagination_type and Accept."
+    }
+
+    $headerArguments = @{}
+    if ($PSBoundParameters.ContainsKey('IncludeHeaders')) {
+        $allowedHeaders = [System.Collections.Generic.List[string]]::new()
+        foreach ($headerName in $IncludeHeaders) {
+            if ([string]::IsNullOrWhiteSpace($headerName)) {
+                continue
+            }
+            if (_TestSensitiveHeader $headerName) {
+                Write-Warning "The '$($headerName.Trim())' header is excluded from the output for security reasons."
+                continue
+            }
+            $allowedHeaders.Add($headerName.Trim())
+        }
+        $headerArguments.IncludeHeaders = [string[]] $allowedHeaders.ToArray()
     }
 
     if ($Parameters.Count -gt 0) {
@@ -149,7 +180,8 @@ function Invoke-KelvinApi {
         -ContentType $BodyContentType `
         -Headers @{ Authorization = "Bearer $token"; Accept = $Accept } `
         -RefreshToken `
-        -TypeName $TypeName
+        -TypeName $TypeName `
+        @headerArguments
 }
 
 function _GetQuery($parameters) {

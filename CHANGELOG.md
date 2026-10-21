@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-20
+
+### Added
+
+- `-IncludeHeaders` parameter on `Invoke-KelvinApi` (parsed results only) to attach selected response headers to each returned object in an `_headers` map. Works with cursor, limits, and stream pagination. For security reasons, `Cookie`, `Set-Cookie`, and `Sec-*` headers are never included, even when requested.
+- `Get-KelvinVersion` — Get the deployed version of the connected instance (from the `x-deploy-version` response header) as a `System.Version` object.
+
 ## [0.6.0] - 2026-10-20
 
 ### Added

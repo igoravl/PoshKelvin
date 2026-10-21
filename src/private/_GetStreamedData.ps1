@@ -20,7 +20,12 @@ function _GetStreamedData {
         [string] $TypeName,
 
         [Parameter()]
-        [switch] $RefreshToken
+        [switch] $RefreshToken,
+
+        # Response header names to attach to each record as an '_headers' property.
+        [Parameter()]
+        [AllowEmptyCollection()]
+        [string[]] $IncludeHeaders
     )
 
     Add-Type -AssemblyName System.Net.Http
@@ -33,6 +38,10 @@ function _GetStreamedData {
             param ($requestHeaders)
             _SendHttpRequest -Client $client -Uri $Uri -Method $Method `
                 -Headers $requestHeaders -Body $Body -ContentType $ContentType
+        }
+
+        if ($null -ne $IncludeHeaders) {
+            $responseHeaders = _SelectResponseHeaders -Headers @($response.Headers, $response.Content.Headers) -Name $IncludeHeaders
         }
 
         $reader = [System.IO.StreamReader]::new($response.Content.ReadAsStreamAsync().GetAwaiter().GetResult())
@@ -52,6 +61,9 @@ function _GetStreamedData {
                 if ($null -ne $item) {
                     if ($TypeName) {
                         $item.PSObject.TypeNames.Insert(0, $TypeName)
+                    }
+                    if ($null -ne $IncludeHeaders) {
+                        $item = _AddResponseHeaders -InputObject $item -Headers $responseHeaders
                     }
                     Write-Output $item
                 }

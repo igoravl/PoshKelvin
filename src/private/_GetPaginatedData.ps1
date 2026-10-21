@@ -20,7 +20,12 @@ function _GetPaginatedData {
         [string] $TypeName,
 
         [Parameter()]
-        [switch] $RefreshToken
+        [switch] $RefreshToken,
+
+        # Response header names to attach to each item as an '_headers' property.
+        [Parameter()]
+        [AllowEmptyCollection()]
+        [string[]] $IncludeHeaders
     )
 
     $builder = [UriBuilder] $Uri
@@ -57,14 +62,26 @@ function _GetPaginatedData {
                 Write-Verbose 'Reading newline-delimited JSON stream.'
                 _GetStreamedData -Uri $currentUri -Method $Method -Body $Body `
                     -ContentType $ContentType -Headers $requestHeaders -TypeName $TypeName `
-                    -RefreshToken:$RefreshToken -ErrorAction Stop
+                    -RefreshToken:$RefreshToken -IncludeHeaders $IncludeHeaders -ErrorAction Stop
                 return
             }
 
-            $response = _InvokeAuthenticatedRequest -Headers $requestHeaders -RefreshToken:$RefreshToken -Request {
-                param ($headers)
-                Invoke-RestMethod -Uri $currentUri -Method $Method -Body $Body `
-                    -ContentType $ContentType -Headers $headers -ErrorAction Stop
+            if ($null -ne $IncludeHeaders) {
+                # Invoke-WebRequest exposes response headers on both Windows PowerShell 5.1 and PowerShell 7+.
+                $webResponse = _InvokeAuthenticatedRequest -Headers $requestHeaders -RefreshToken:$RefreshToken -Request {
+                    param ($headers)
+                    Invoke-WebRequest -Uri $currentUri -Method $Method -Body $Body -UseBasicParsing `
+                        -ContentType $ContentType -Headers $headers -ErrorAction Stop
+                }
+                $responseHeaders = _SelectResponseHeaders -Headers @(, $webResponse.Headers) -Name $IncludeHeaders
+                $response = _ConvertFromWebResponse $webResponse
+            }
+            else {
+                $response = _InvokeAuthenticatedRequest -Headers $requestHeaders -RefreshToken:$RefreshToken -Request {
+                    param ($headers)
+                    Invoke-RestMethod -Uri $currentUri -Method $Method -Body $Body `
+                        -ContentType $ContentType -Headers $headers -ErrorAction Stop
+                }
             }
 
             $paginated = $null -ne $response -and $response.PSObject.Properties.Name -contains 'pagination'
@@ -106,6 +123,9 @@ function _GetPaginatedData {
                     if ($TypeName) {
                         $item.PSObject.TypeNames.Insert(0, $TypeName)
                     }
+                    if ($null -ne $IncludeHeaders) {
+                        $item = _AddResponseHeaders -InputObject $item -Headers $responseHeaders
+                    }
                     Write-Output $item
                 }
             }
@@ -145,4 +165,26 @@ function _GetPaginatedData {
             return
         }
     } while ($currentUri)
+}
+
+function _ConvertFromWebResponse {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object] $Response
+    )
+
+    $content = $Response.Content
+    if ($content -is [byte[]]) {
+        $content = [System.Text.Encoding]::UTF8.GetString($content)
+    }
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        return
+    }
+    try {
+        ConvertFrom-Json -InputObject $content -ErrorAction Stop
+    }
+    catch {
+        $content
+    }
 }

@@ -247,6 +247,46 @@ Describe 'Invoke-KelvinApi' {
         }
     }
 
+    Context 'Response header selection' {
+
+        BeforeAll {
+            Set-KelvinTestConnection
+            Mock _GetPaginatedData { } -ModuleName PoshKelvin
+        }
+
+        It 'Does not request headers when IncludeHeaders is omitted' {
+            Invoke-KelvinApi 'some/path'
+
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                -not $PSBoundParameters.ContainsKey('IncludeHeaders')
+            }
+        }
+
+        It 'Forwards the selected headers and drops cookies and Sec-* headers' {
+            Invoke-KelvinApi 'some/path' -PaginationMode Stream `
+                -IncludeHeaders 'X-Request-Id', 'Set-Cookie', 'cookie', 'Sec-Fetch-Mode', ' Content-Type ' `
+                -WarningVariable warnings -WarningAction SilentlyContinue
+
+            @($warnings).Count | Should -Be 3
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                ($IncludeHeaders -join '|') -eq 'X-Request-Id|Content-Type' -and
+                $Uri.Query -match 'pagination_type=stream' -and $IncludeHeaders -notcontains 'pagination_type'
+            }
+        }
+
+        It 'Still requests a headers map when every selected header is sensitive' {
+            Invoke-KelvinApi 'some/path' -IncludeHeaders 'Cookie' -WarningAction SilentlyContinue
+
+            Should -Invoke _GetPaginatedData -ModuleName PoshKelvin -Times 1 -Exactly -ParameterFilter {
+                $null -ne $IncludeHeaders -and $IncludeHeaders.Count -eq 0
+            }
+        }
+
+        It 'Rejects IncludeHeaders with raw AsStream' {
+            { Invoke-KelvinApi 'some/path' -IncludeHeaders 'X-Request-Id' -AsStream } | Should -Throw '*parameter set*'
+        }
+    }
+
     Context 'Return value pass-through' {
 
         BeforeAll {

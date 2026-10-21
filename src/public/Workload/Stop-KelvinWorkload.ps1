@@ -13,7 +13,7 @@
 .EXAMPLE
     PS> Get-KelvinWorkload -ClusterName my-cluster | Stop-KelvinWorkload
 
-    Stops all workloads in the specified cluster via pipeline input.
+    Stops all workloads in the specified cluster.
 #>
 function Stop-KelvinWorkload {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

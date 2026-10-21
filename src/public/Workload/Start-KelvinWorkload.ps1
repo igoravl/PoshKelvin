@@ -13,7 +13,7 @@
 .EXAMPLE
     PS> Get-KelvinWorkload -ClusterName my-cluster | Start-KelvinWorkload
 
-    Starts all workloads in the specified cluster via pipeline input.
+    Starts all workloads in the specified cluster.
 #>
 function Start-KelvinWorkload {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]

@@ -87,15 +87,10 @@ Set-KelvinSecret -Name my-secret -Value 'NewP@ssw0rd!'
 Get-KelvinSecret -Name my-secret | Remove-KelvinSecret
 ```
 
-- `Set-KelvinSecret` and `Remove-KelvinSecret` prompt for confirmation by
-  default. Use `-Force` to skip the prompt, or `-WhatIf` to preview the
-  operation without running it.
 - The Kelvin API does not support in-place updates, so `Set-KelvinSecret`
   deletes the secret and then recreates it. This is **not atomic**: if the
   delete succeeds but the create fails, the secret is gone. If the delete
   fails, no create is attempted.
-- `Remove-KelvinSecret` accepts several names or pipeline input; a failure on
-  one secret is reported and the remaining secrets are still processed.
 
 ## Token renewal
 

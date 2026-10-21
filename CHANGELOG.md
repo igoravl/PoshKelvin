@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `-IncludeHeaders` parameter on `Invoke-KelvinApi` (parsed results only) to attach selected response headers to each returned object in an `_headers` map. Works with cursor, limits, and stream pagination. For security reasons, `Cookie`, `Set-Cookie`, and `Sec-*` headers are never included, even when requested.
 - `Get-KelvinVersion` — Get the deployed version of the connected instance (from the `x-deploy-version` response header) as a `System.Version` object.
-- `New-KelvinSecret` — Create a new secret. Supports `-WhatIf` and `-Confirm`.
-- `Set-KelvinSecret` — Replace the value of an existing secret. The Kelvin API has no in-place update, so this deletes and recreates the secret; it is not atomic, and no create is attempted if the delete fails. Prompts for confirmation unless `-Force` is used.
-- `Remove-KelvinSecret` — Permanently delete one or more secrets, including from pipeline input (for example, `Get-KelvinSecret | Remove-KelvinSecret`). Prompts for confirmation unless `-Force` is used.
+- `New-KelvinSecret` — Create a new secret.
+- `Set-KelvinSecret` — Replace the value of an existing secret by deleting and recreating it. This is not atomic: if recreation fails, the secret is lost.
+- `Remove-KelvinSecret` — Permanently delete one or more secrets.
 
 ## [0.6.0] - 2026-10-20
 

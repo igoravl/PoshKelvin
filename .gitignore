@@ -31,3 +31,6 @@ testResults.xml
 
 # Local reference material (may contain tokens and internal hosts)
 .reference-data/
+
+# GitHub CLI cached data
+.ghc/

@@ -88,8 +88,8 @@ Get-KelvinSecret -Name my-secret | Remove-KelvinSecret
 ```
 
 - `Set-KelvinSecret` and `Remove-KelvinSecret` prompt for confirmation by
-  default. Use `-Force` to skip the prompt; `-WhatIf` is still honored when
-  combined with `-Force`.
+  default. Use `-Force` to skip the prompt, or `-WhatIf` to preview the
+  operation without running it.
 - The Kelvin API does not support in-place updates, so `Set-KelvinSecret`
   deletes the secret and then recreates it. This is **not atomic**: if the
   delete succeeds but the create fails, the secret is gone. If the delete
